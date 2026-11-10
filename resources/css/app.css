@@ -5,68 +5,137 @@
 @source '../views/**/*.blade.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    /* Tipografia: Poppins para Títulos/Destaques e Inter para Corpo */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-heading: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-    --color-brand-purple: #623bae;
-    --color-brand-purple-hover: #502e91;
-    --color-brand-purple-light: #f2effb;
-    --color-brand-purple-border: #e1d8ef;
-    --color-brand-yellow: #fff000;
-    --color-brand-blue: #00d9ff;
-    --color-brand-pink: #ff20b5;
-    --color-brand-green: #00856d;
+    /* Shade Cor Principal (Royal Purple) */
+    --color-royal-purple-50: #f6f5fd;
+    --color-royal-purple-100: #eeecfb;
+    --color-royal-purple-200: #dfdcf8;
+    --color-royal-purple-300: #c7bff3;
+    --color-royal-purple-400: #ab9bea;
+    --color-royal-purple-500: #8e72e0;
+    --color-royal-purple-600: #7c54d3;
+    --color-royal-purple-700: #6c41c0;
+    --color-royal-purple-800: #623bae;
+    --color-royal-purple-900: #4b2e84;
+    --color-royal-purple-950: #2e1c59;
+
+    /* Shade Cor de Destaque (Broom) */
+    --color-broom-50: #ffffe7;
+    --color-broom-100: #fdffc2;
+    --color-broom-200: #fdff89;
+    --color-broom-300: #fffd45;
+    --color-broom-400: #fff711;
+    --color-broom-500: #fff000;
+    --color-broom-600: #cab200;
+    --color-broom-700: #9f8301;
+    --color-broom-800: #826709;
+    --color-broom-900: #6e550e;
+    --color-broom-950: #402e03;
+
+    /* Shade Cor de Destaque (Sky Blue) */
+    --color-sky-blue-50: #eafeff;
+    --color-sky-blue-100: #cbfaff;
+    --color-sky-blue-200: #9ef3ff;
+    --color-sky-blue-300: #5be9ff;
+    --color-sky-blue-400: #00d9ff;
+    --color-sky-blue-500: #00c0e5;
+    --color-sky-blue-600: #0098c0;
+    --color-sky-blue-700: #03789b;
+    --color-sky-blue-800: #0d607d;
+    --color-sky-blue-900: #104f69;
+    --color-sky-blue-950: #033449;
+
+    /* Shade Cor de Destaque (Shocking Pink) */
+    --color-shocking-pink-50: #fef1fa;
+    --color-shocking-pink-100: #fee5f8;
+    --color-shocking-pink-200: #ffcaf1;
+    --color-shocking-pink-300: #ff9fe4;
+    --color-shocking-pink-400: #ff63d0;
+    --color-shocking-pink-500: #ff20b5;
+    --color-shocking-pink-600: #f0129b;
+    --color-shocking-pink-700: #d1057d;
+    --color-shocking-pink-800: #ad0767;
+    --color-shocking-pink-900: #8f0c57;
+    --color-shocking-pink-950: #580032;
+
+    /* Shade Cor de Fundo (Magnolia & Branco) */
+    --color-magnolia-50: #f7f5fd;
+    --color-magnolia-100: #f2effb;
+    --color-magnolia-200: #e3ddf7;
+    --color-magnolia-300: #cec1f1;
+    --color-magnolia-400: #b59ee7;
+    --color-magnolia-500: #9b76dc;
+    --color-magnolia-600: #8b59ce;
+    --color-magnolia-700: #7b46bb;
+    --color-magnolia-800: #673b9c;
+    --color-magnolia-900: #553280;
+    --color-magnolia-950: #361f56;
+
+    /* Shade Cor de Fonte (Cloud Burst) */
+    --color-cloud-burst-50: #f2f7fc;
+    --color-cloud-burst-100: #e2edf7;
+    --color-cloud-burst-200: #cbe0f2;
+    --color-cloud-burst-300: #a8cce8;
+    --color-cloud-burst-400: #7eb0dc;
+    --color-cloud-burst-500: #6095d1;
+    --color-cloud-burst-600: #4c7cc4;
+    --color-cloud-burst-700: #4269b3;
+    --color-cloud-burst-800: #3b5792;
+    --color-cloud-burst-900: #334a75;
+    --color-cloud-burst-950: #24304a;
+
+    /* Aliases utilitários */
+    --color-brand-purple: var(--color-royal-purple-800);
+    --color-brand-purple-hover: var(--color-royal-purple-900);
+    --color-brand-purple-light: var(--color-magnolia-100);
+    --color-brand-purple-border: var(--color-magnolia-200);
+    --color-brand-yellow: var(--color-broom-500);
+    --color-brand-blue: var(--color-sky-blue-400);
+    --color-brand-pink: var(--color-shocking-pink-500);
 }
 
-/* Custom interactive markers on the question board */
-.marker {
-    position: absolute;
-    z-index: 20;
-    touch-action: none;
+/* Aplicando Poppins em Títulos por padrão */
+h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: var(--font-heading);
+}
+
+body {
+    font-family: var(--font-sans);
+    color: var(--color-cloud-burst-950);
+    background-color: var(--color-magnolia-100);
+}
+
+/* Native text highlights */
+mark.highlight {
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
     border-radius: 4px;
-    cursor: grab;
-    user-select: none;
+    padding: 2px 4px;
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
 }
-.marker:active {
-    cursor: grabbing;
+mark.highlight[data-kind='command'] {
+    background-color: var(--color-broom-500);
+    color: var(--color-broom-950);
+    border-bottom: 2px solid var(--color-broom-600);
 }
-.marker[data-kind='command'] {
-    background-color: rgba(255, 240, 0, 0.45);
-    border: 1px solid #b09d00;
+mark.highlight[data-kind='evidence'] {
+    background-color: var(--color-sky-blue-400);
+    color: var(--color-sky-blue-950);
+    border-bottom: 2px solid var(--color-sky-blue-600);
 }
-.marker[data-kind='evidence'] {
-    background-color: rgba(0, 217, 255, 0.35);
-    border: 1px solid #008aaa;
+mark.highlight:hover {
+    filter: brightness(0.95);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
-.marker[data-kind='answer'] {
-    background-color: rgba(255, 32, 181, 0.3);
-    border: 2px solid #db0098;
-}
-.marker.selected {
-    outline: 2px dashed #382657;
-    outline-offset: 3px;
-}
-.marker .handle {
-    position: absolute;
-    right: -4px;
-    top: -1px;
-    width: 12px;
-    height: calc(100% + 2px);
-    cursor: ew-resize;
+mark.highlight.selected-highlight {
+    outline: 2px dashed var(--color-royal-purple-900);
+    outline-offset: 2px;
 }
 
-/* Navigation button state for completed questions */
-.nav-btn-done {
-    border-bottom: 4px solid var(--color-brand-green) !important;
-}
-
-/* Highlighted option container */
-.option-item:has(input:checked) {
-    border-color: #c32786 !important;
-    background-color: #fff0f8 !important;
-}
-
-/* Backdrop for native dialog */
 dialog::backdrop {
-    background-color: rgba(28, 16, 59, 0.55);
+    background-color: rgba(46, 28, 89, 0.6);
 }
