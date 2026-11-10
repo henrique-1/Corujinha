@@ -1,0 +1,82 @@
+name: Deploy para Produção (VPS CloudPanel)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Corujinha / Prepara Avalia+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Executar Deploy via SSH na VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          LARAVEL_ENV_ENCRYPTION_KEY: ${{ secrets.LARAVEL_ENV_ENCRYPTION_KEY }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER || 'bissoli-corujinha' }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: LARAVEL_ENV_ENCRYPTION_KEY
+          script_stop: false
+          script: |
+            echo "==> Conectado à VPS! Preparando ambiente..."
+            export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.local/bin:$PATH"
+
+            if [ -d "/usr/local/nvm/versions/node" ]; then
+              NODE_LATEST=$(ls -1 /usr/local/nvm/versions/node | tail -n 1)
+              export PATH="/usr/local/nvm/versions/node/$NODE_LATEST/bin:$PATH"
+            elif [ -d "$HOME/.nvm/versions/node" ]; then
+              NODE_LATEST=$(ls -1 "$HOME/.nvm/versions/node" | tail -n 1)
+              export PATH="$HOME/.nvm/versions/node/$NODE_LATEST/bin:$PATH"
+            fi
+
+            set -e
+
+            PHP_BIN=$(command -v php8.5 || command -v php8.4 || command -v php8.3 || command -v php)
+            COMPOSER_BIN=$(command -v composer || echo "/usr/local/bin/composer")
+
+            echo "PHP: $($PHP_BIN -v | head -n 1)"
+            echo "Node: $(node -v)"
+            echo "NPM: $(npm -v)"
+
+            cd /home/bissoli-corujinha/htdocs/corujinha.bissoli.tech
+
+            echo "==> Atualizando código-fonte da branch main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Instalando dependências do Composer..."
+            $PHP_BIN $COMPOSER_BIN install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+            if [ -f ".env.production.encrypted" ] && [ -n "$LARAVEL_ENV_ENCRYPTION_KEY" ]; then
+              echo "==> Descriptografando .env.production.encrypted para .env..."
+              $PHP_BIN artisan env:decrypt --env=production --filename=.env --key="$LARAVEL_ENV_ENCRYPTION_KEY" --force
+            elif [ ! -f ".env" ] && [ -f ".env.production" ]; then
+              echo "==> Copiando .env.production para .env..."
+              cp .env.production .env
+            fi
+
+            echo "==> Compilando assets com Vite e Tailwind..."
+            npm ci --no-audit --no-fund
+            npm run build
+
+            echo "==> Executando migrations do banco de dados..."
+            $PHP_BIN artisan migrate --force
+
+            echo "==> Atualizando caches de produção do Laravel..."
+            $PHP_BIN artisan optimize:clear
+            $PHP_BIN artisan optimize
+
+            echo "==> Reiniciando workers de fila..."
+            $PHP_BIN artisan queue:restart || true
+
+            echo "==> Deploy concluído com sucesso!"

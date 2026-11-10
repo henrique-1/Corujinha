@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand-purple: #623bae;
+    --color-brand-purple-hover: #502e91;
+    --color-brand-purple-light: #f2effb;
+    --color-brand-purple-border: #e1d8ef;
+    --color-brand-yellow: #fff000;
+    --color-brand-blue: #00d9ff;
+    --color-brand-pink: #ff20b5;
+    --color-brand-green: #00856d;
+}
+
+/* Custom interactive markers on the question board */
+.marker {
+    position: absolute;
+    z-index: 20;
+    touch-action: none;
+    border-radius: 4px;
+    cursor: grab;
+    user-select: none;
+}
+.marker:active {
+    cursor: grabbing;
+}
+.marker[data-kind='command'] {
+    background-color: rgba(255, 240, 0, 0.45);
+    border: 1px solid #b09d00;
+}
+.marker[data-kind='evidence'] {
+    background-color: rgba(0, 217, 255, 0.35);
+    border: 1px solid #008aaa;
+}
+.marker[data-kind='answer'] {
+    background-color: rgba(255, 32, 181, 0.3);
+    border: 2px solid #db0098;
+}
+.marker.selected {
+    outline: 2px dashed #382657;
+    outline-offset: 3px;
+}
+.marker .handle {
+    position: absolute;
+    right: -4px;
+    top: -1px;
+    width: 12px;
+    height: calc(100% + 2px);
+    cursor: ew-resize;
+}
+
+/* Navigation button state for completed questions */
+.nav-btn-done {
+    border-bottom: 4px solid var(--color-brand-green) !important;
+}
+
+/* Highlighted option container */
+.option-item:has(input:checked) {
+    border-color: #c32786 !important;
+    background-color: #fff0f8 !important;
+}
+
+/* Backdrop for native dialog */
+dialog::backdrop {
+    background-color: rgba(28, 16, 59, 0.55);
+}
