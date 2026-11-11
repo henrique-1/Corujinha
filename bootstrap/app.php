@@ -14,6 +14,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectUsersTo(function (Request $request) {
+            $user = $request->user();
+            if ($user?->isSuperAdmin()) {
+                return route('admin.professores.index');
+            }
+
+            return route('professor.salas.index');
+        });
+
+        $middleware->redirectGuestsTo(fn () => route('login'));
+
         $middleware->alias([
             'role' => EnsureUserRole::class,
         ]);
