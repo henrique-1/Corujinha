@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuestionController extends Controller
 {
@@ -171,6 +172,25 @@ class QuestionController extends Controller
 
         return redirect()->route('professor.perguntas.index')
             ->with('success', 'Pergunta atualizada com sucesso!');
+    }
+
+    /**
+     * Serve a imagem de apoio da pergunta diretamente do disco público,
+     * sem depender de symlink public/storage ou regras estáticas do Nginx.
+     */
+    public function showSupportImage(Question $question): StreamedResponse
+    {
+        if (! $question->hasImageSupport() || ! Storage::disk('public')->exists($question->support_image_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response(
+            $question->support_image_path,
+            null,
+            [
+                'Cache-Control' => 'public, max-age=604800',
+            ]
+        );
     }
 
     /**

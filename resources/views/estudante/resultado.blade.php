@@ -2,11 +2,7 @@
     <header class="bg-royal-purple-950 text-white px-4 md:px-8 py-6 shadow-md">
         <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex items-center gap-4">
-                <picture>
-                    <source srcset="{{ asset('images/logo/logo-icon.avif') }}" type="image/avif">
-                    <source srcset="{{ asset('images/logo/logo-icon.webp') }}" type="image/webp">
-                    <img src="{{ asset('images/logo/logo-icon.webp') }}" alt="Corujinha" class="h-12 w-auto object-contain">
-                </picture>
+                <x-brand-logo variant="icon" img-class="h-12 w-auto object-contain" />
                 <div>
                     <span class="inline-block px-3 py-1 rounded-full text-xs font-bold font-heading bg-shocking-pink-500/20 text-shocking-pink-200 border border-shocking-pink-400/30 mb-1">
                         Gabarito & Devolutivas Pedagógicas

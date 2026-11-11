@@ -181,4 +181,24 @@ test('destaques do marca-texto funcionam sobre texto complexo sem corromper tags
         ->assertSee('Título da Fonte')
         ->assertSee('<strong><mark', false)
         ->assertSee($question->image_url, false);
+
+    // Rota de mídia serve a imagem diretamente sem depender de symlink public/storage
+    $this->get($question->image_url)->assertOk();
+
+    // Questão sem imagem retorna 404 na rota de mídia
+    $noImgQuestion = Question::create([
+        'user_id' => $professor->id,
+        'support_type' => 'text',
+        'prompt' => 'Sem imagem',
+        'correct_option' => 'A',
+    ]);
+    $this->get(route('midia.questao', $noImgQuestion))->assertNotFound();
+});
+
+test('logos possuem parametro de versionamento para evitar cache antigo em producao', function () {
+    $expectedVer = filemtime(public_path('images/logo/logo-horizontal.avif'));
+
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertSee("images/logo/logo-horizontal.avif?v={$expectedVer}", false);
 });

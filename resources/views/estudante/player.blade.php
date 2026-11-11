@@ -4,11 +4,7 @@
     {{-- Header --}}
     <header class="bg-white border-b border-magnolia-200 px-4 md:px-8 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div class="flex items-center gap-4">
-            <picture>
-                <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
-                <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-10 w-auto object-contain">
-            </picture>
+            <x-brand-logo variant="horizontal" img-class="h-10 w-auto object-contain" />
             <div class="border-l border-magnolia-300 pl-4">
                 <h1 class="text-base font-bold font-heading text-cloud-burst-950 m-0 leading-tight">
                     {{ $classroom->name }}

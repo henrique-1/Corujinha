@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Storage;
 
 class Question extends Model
 {
@@ -82,10 +81,13 @@ class Question extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        if (! $this->hasImageSupport()) {
+        if (! $this->hasImageSupport() || ! $this->exists) {
             return null;
         }
 
-        return Storage::url($this->support_image_path);
+        return route('midia.questao', [
+            'question' => $this->id,
+            'v' => $this->updated_at?->timestamp ?? 1,
+        ], false);
     }
 }
