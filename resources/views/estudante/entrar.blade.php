@@ -71,9 +71,10 @@
             </form>
 
             <div class="pt-4 border-t border-magnolia-200 text-center">
-                <a href="{{ route('login') }}" class="text-xs font-bold text-cloud-burst-800 hover:text-royal-purple-800 transition flex items-center justify-center gap-1">
-                    <x-lucide-shield class="w-3.5 h-3.5 text-royal-purple-800" />
-                    <span>Área do Professor e Administrador →</span>
+                <a href="{{ route('login') }}" class="cursor-pointer inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-xs font-bold font-heading text-royal-purple-900 bg-royal-purple-50 hover:bg-royal-purple-100 border border-royal-purple-200 transition shadow-2xs">
+                    <x-lucide-shield class="w-4 h-4 text-royal-purple-800 shrink-0" />
+                    <span>Área do Professor e Administrador</span>
+                    <x-lucide-arrow-right class="w-3.5 h-3.5 text-royal-purple-700 shrink-0" />
                 </a>
             </div>
         </div>

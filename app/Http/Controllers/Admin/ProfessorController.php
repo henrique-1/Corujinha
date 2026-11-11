@@ -100,4 +100,23 @@ class ProfessorController extends Controller
 
         return back()->with('success', "O autenticador (TOTP) de {$professor->name} foi desabilitado com sucesso. Ele agora pode entrar apenas com a senha.");
     }
+
+    /**
+     * Remove/cancela o convite de um professor pendente.
+     */
+    public function destroyInvite(User $professor): RedirectResponse
+    {
+        if ($professor->role !== 'professor') {
+            abort(403);
+        }
+
+        if ($professor->isActive()) {
+            return back()->with('error', 'Não é possível remover o convite de um professor que já ativou sua conta.');
+        }
+
+        $email = $professor->email;
+        $professor->delete();
+
+        return back()->with('success', "Convite para {$email} foi cancelado e removido com sucesso.");
+    }
 }

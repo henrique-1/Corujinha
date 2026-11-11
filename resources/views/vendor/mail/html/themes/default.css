@@ -1,0 +1,281 @@
+/* Corujinha AVALIA+ Mail Theme */
+
+body,
+body *:not(html):not(style):not(br):not(tr):not(code) {
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    position: relative;
+}
+
+body {
+    -webkit-text-size-adjust: none;
+    background-color: #f2effb;
+    color: #24304a;
+    height: 100%;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    width: 100% !important;
+}
+
+p,
+ul,
+ol,
+blockquote {
+    line-height: 1.6;
+    text-align: start;
+    color: #24304a;
+}
+
+a {
+    color: #623bae;
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+a img {
+    border: none;
+}
+
+/* Typography */
+
+h1 {
+    color: #24304a;
+    font-size: 20px;
+    font-weight: 800;
+    margin-top: 0;
+    text-align: start;
+    font-family: 'Poppins', -apple-system, sans-serif;
+    letter-spacing: -0.02em;
+}
+
+h2 {
+    color: #24304a;
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 0;
+    text-align: start;
+    font-family: 'Poppins', -apple-system, sans-serif;
+}
+
+h3 {
+    color: #24304a;
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 0;
+    text-align: left;
+    font-family: 'Poppins', -apple-system, sans-serif;
+}
+
+p {
+    font-size: 15px;
+    line-height: 1.6em;
+    margin-top: 0;
+    text-align: left;
+    color: #334a75;
+}
+
+p.sub {
+    font-size: 12px;
+    color: #7eb0dc;
+}
+
+img {
+    max-width: 100%;
+}
+
+/* Layout */
+
+.wrapper {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    background-color: #f2effb;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.content {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+/* Header */
+
+.header {
+    padding: 30px 0 20px 0;
+    text-align: center;
+}
+
+.header a {
+    color: #623bae;
+    font-size: 20px;
+    font-weight: 800;
+    text-decoration: none;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Logo */
+
+.logo {
+    height: 52px;
+    max-height: 52px;
+    width: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Body */
+
+.body {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    background-color: #f2effb;
+    border-bottom: 1px solid #f2effb;
+    border-top: 1px solid #f2effb;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.inner-body {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 570px;
+    background-color: #ffffff;
+    border: 1px solid #dfdcf8;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(98, 59, 174, 0.08);
+    margin: 0 auto 30px auto;
+    padding: 0;
+    width: 570px;
+}
+
+.inner-body a {
+    word-break: break-all;
+}
+
+/* Subcopy */
+
+.subcopy {
+    border-top: 1px solid #eeecfb;
+    margin-top: 25px;
+    padding-top: 20px;
+}
+
+.subcopy p {
+    font-size: 13px;
+    color: #6095d1;
+}
+
+/* Footer */
+
+.footer {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 570px;
+    margin: 0 auto;
+    padding: 0 0 35px 0;
+    text-align: center;
+    width: 570px;
+}
+
+.footer p {
+    color: #8e72e0;
+    font-size: 12px;
+    text-align: center;
+}
+
+.footer a {
+    color: #623bae;
+    text-decoration: underline;
+}
+
+/* Content Cell */
+
+.content-cell {
+    max-width: 100vw;
+    padding: 36px 40px;
+}
+
+/* Buttons */
+
+.action {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 30px auto;
+    padding: 0;
+    text-align: center;
+    width: 100%;
+}
+
+.button {
+    -webkit-text-size-adjust: none;
+    border-radius: 14px;
+    color: #ffffff !important;
+    display: inline-block;
+    overflow: hidden;
+    text-decoration: none;
+    font-family: 'Poppins', -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background-color: #623bae;
+    border-bottom: 12px solid #623bae;
+    border-left: 28px solid #623bae;
+    border-right: 28px solid #623bae;
+    border-top: 12px solid #623bae;
+    box-shadow: 0 3px 8px rgba(98, 59, 174, 0.3);
+}
+
+.button-primary,
+.button-blue {
+    background-color: #623bae;
+    border-color: #623bae;
+}
+
+.button-green,
+.button-success {
+    background-color: #059669;
+    border-color: #059669;
+}
+
+.button-red,
+.button-error {
+    background-color: #e11d48;
+    border-color: #e11d48;
+}
+
+/* Panels */
+
+.panel {
+    border-left: #fff000 solid 4px;
+    margin: 24px 0;
+    border-radius: 0 12px 12px 0;
+    overflow: hidden;
+}
+
+.panel-content {
+    background-color: #f6f5fd;
+    color: #24304a;
+    padding: 16px 20px;
+    border: 1px solid #dfdcf8;
+    border-left: none;
+}
+
+.panel-content p {
+    color: #24304a;
+    font-size: 14px;
+    margin: 0;
+}
+
+.break-all {
+    word-break: break-all;
+}

@@ -94,7 +94,7 @@
         <div class="bg-white rounded-2xl border border-royal-purple-200/60 shadow-xs overflow-hidden">
             <div class="p-5 border-b border-royal-purple-100 flex items-center justify-between">
                 <div>
-                    <h2 class="text-base font-bold text-cloud-burst-950 font-heading">
+                    <h2 id="attempts-total-count" class="text-base font-bold text-cloud-burst-950 font-heading">
                         Respostas dos Estudantes ({{ $attempts->total() }})
                     </h2>
                     <p class="text-xs text-cloud-burst-900/60">Acompanhamento das tentativas registradas nesta sala</p>
@@ -113,13 +113,13 @@
                             <th class="py-3.5 px-6 text-right">Ações</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-royal-purple-100/60">
+                    <tbody id="attempts-table-body" class="divide-y divide-royal-purple-100/60">
                         @forelse($attempts as $att)
-                            <tr class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="attempt-row-{{ $att->id }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-bold text-cloud-burst-950">
                                     {{ $att->student_name }}
                                 </td>
-                                <td class="py-4 px-6">
+                                <td id="status-cell-{{ $att->id }}" class="py-4 px-6">
                                     @if($att->status === 'reviewed')
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                             Revisão Concluída
@@ -137,10 +137,10 @@
                                 <td class="py-4 px-6 text-cloud-burst-900/70 text-xs">
                                     {{ $att->started_at->format('d/m/Y H:i') }}
                                 </td>
-                                <td class="py-4 px-6 text-cloud-burst-900/70 text-xs">
+                                <td id="concluded-cell-{{ $att->id }}" class="py-4 px-6 text-cloud-burst-900/70 text-xs">
                                     {{ $att->reviewed_at ? $att->reviewed_at->format('d/m/Y H:i') : ($att->completed_at ? $att->completed_at->format('d/m/Y H:i') : '—') }}
                                 </td>
-                                <td class="py-4 px-6 text-center font-bold text-royal-purple-800">
+                                <td id="score-cell-{{ $att->id }}" class="py-4 px-6 text-center font-bold text-royal-purple-800">
                                     {{ $att->score }} / {{ $totalQuestions }}
                                 </td>
                                 <td class="py-4 px-6 text-right">
@@ -151,7 +151,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr>
+                            <tr id="empty-attempts-row">
                                 <td colspan="6" class="py-8 text-center text-cloud-burst-900/60">
                                     Nenhum aluno entrou nesta sala ainda. Projete o código <b class="text-royal-purple-800">{{ $classroom->code }}</b> para iniciar.
                                 </td>
@@ -168,4 +168,15 @@
             @endif
         </div>
     </div>
+
+    @push('scripts')
+        <script>
+            window.__CLASSROOM_MONITOR__ = {
+                classroomId: {{ $classroom->id }},
+                totalAttempts: {{ $attempts->total() }},
+                totalQuestions: {{ $totalQuestions }},
+                attemptUrlPattern: "{{ route('professor.salas.tentativa', [$classroom, '__ATTEMPT_ID__']) }}"
+            };
+        </script>
+    @endpush
 </x-layouts.admin>

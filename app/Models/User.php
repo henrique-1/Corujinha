@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -113,6 +114,16 @@ class User extends Authenticatable
     public function assessments(): HasMany
     {
         return $this->hasMany(Assessment::class);
+    }
+
+    /**
+     * Envia a notificação personalizada de redefinição de senha com validade de 30 minutos.
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Student;
 
+use App\Events\StudentAttemptUpdated;
+use App\Events\StudentJoinedClassroom;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\Question;
@@ -59,6 +61,8 @@ class ClassroomPlayerController extends Controller
             'started_at' => now(),
             'status' => 'in_progress',
         ]);
+
+        broadcast(new StudentJoinedClassroom($attempt));
 
         session([
             'current_attempt_id' => $attempt->id,
@@ -188,6 +192,8 @@ class ClassroomPlayerController extends Controller
 
         $attempt->recalculateScore();
 
+        broadcast(new StudentAttemptUpdated($attempt));
+
         return response()->json(['success' => true]);
     }
 
@@ -208,6 +214,8 @@ class ClassroomPlayerController extends Controller
             'status' => 'submitted',
         ]);
         $attempt->recalculateScore();
+
+        broadcast(new StudentAttemptUpdated($attempt));
 
         // Se a sala tem revisão coletiva ativada, direciona para a tela de revisão
         if ($classroom->collective_review_enabled) {
@@ -296,6 +304,8 @@ class ClassroomPlayerController extends Controller
             'status' => 'reviewed',
         ]);
         $attempt->recalculateScore();
+
+        broadcast(new StudentAttemptUpdated($attempt));
 
         return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
     }
