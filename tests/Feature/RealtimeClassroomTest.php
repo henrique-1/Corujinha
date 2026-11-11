@@ -42,12 +42,13 @@ test('dispara evento StudentJoinedClassroom ao estudante entrar na sala de aula'
 
     $response->assertRedirect();
 
-    Event::assertDispatched(StudentJoinedClassroom::class, function ($event) use ($classroom) {
+    Event::assertDispatched(StudentJoinedClassroom::class, function ($event) use ($classroom, $professor) {
         $channels = $event->broadcastOn();
+        $channelNames = array_map(fn ($c) => $c->name, $channels);
 
         return $event->attempt->student_name === 'Maria Silva'
-            && count($channels) === 1
-            && $channels[0]->name === 'classroom.'.$classroom->id;
+            && in_array('classroom.'.$classroom->id, $channelNames, true)
+            && in_array('professor.'.$professor->id, $channelNames, true);
     });
 });
 

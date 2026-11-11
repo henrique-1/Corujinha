@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Events\ProfessorListUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Rules\CpfRule;
@@ -93,6 +94,8 @@ class InvitationController extends Controller
             'invitation_token' => null,
             'email_verified_at' => now(),
         ]);
+
+        broadcast(new ProfessorListUpdated($user, 'updated'));
 
         Auth::login($user);
         $request->session()->regenerate();

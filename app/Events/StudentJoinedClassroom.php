@@ -30,6 +30,7 @@ class StudentJoinedClassroom implements ShouldBroadcastNow
     {
         return [
             new Channel('classroom.'.$this->attempt->classroom_id),
+            new Channel('professor.'.$this->attempt->classroom->user_id),
         ];
     }
 
