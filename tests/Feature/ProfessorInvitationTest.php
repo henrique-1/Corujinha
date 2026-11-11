@@ -84,3 +84,46 @@ test('rejeita finalização de cadastro com senha menor que 15 caracteres', func
     $professor->refresh();
     expect($professor->status)->toBe('pending');
 });
+
+test('super-usuário pode remover o convite de um professor pendente', function () {
+    $admin = User::factory()->create([
+        'role' => 'super_admin',
+        'status' => 'active',
+    ]);
+
+    $professor = User::create([
+        'name' => 'Professor Cancelado',
+        'email' => 'cancelado@sesi.org.br',
+        'role' => 'professor',
+        'status' => 'pending',
+        'invitation_token' => 'token-a-remover',
+        'invitation_sent_at' => now(),
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->delete(route('admin.professores.destroy_invite', $professor));
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success');
+
+    expect(User::where('email', 'cancelado@sesi.org.br')->exists())->toBeFalse();
+});
+
+test('super-usuário não pode remover convite de um professor que já ativou a conta', function () {
+    $admin = User::factory()->create([
+        'role' => 'super_admin',
+        'status' => 'active',
+    ]);
+
+    $professor = User::factory()->create([
+        'role' => 'professor',
+        'status' => 'active',
+        'email' => 'ativo@sesi.org.br',
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->delete(route('admin.professores.destroy_invite', $professor));
+
+    $response->assertSessionHas('error');
+    expect(User::where('email', 'ativo@sesi.org.br')->exists())->toBeTrue();
+});

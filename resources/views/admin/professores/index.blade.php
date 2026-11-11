@@ -71,6 +71,14 @@
                                                 Reenviar Convite
                                             </button>
                                         </form>
+
+                                        <form action="{{ route('admin.professores.destroy_invite', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja cancelar e remover o convite para este professor?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="cursor-pointer text-xs font-bold font-heading text-rose-700 hover:underline bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition">
+                                                Remover Convite
+                                            </button>
+                                        </form>
                                     @endif
 
                                     @if($prof->isTotpEnabled())

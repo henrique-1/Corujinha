@@ -119,6 +119,12 @@ class AssessmentController extends Controller
     public function destroy(Assessment $avaliacao): RedirectResponse
     {
         $this->authorizeAssessment($avaliacao);
+
+        if ($avaliacao->classrooms()->exists()) {
+            return redirect()->route('professor.avaliacoes.index')
+                ->with('error', 'Esta avaliação não pode ser excluída pois está vinculada a uma ou mais salas de aula.');
+        }
+
         $avaliacao->delete();
 
         return redirect()->route('professor.avaliacoes.index')

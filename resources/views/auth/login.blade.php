@@ -60,6 +60,9 @@
                         <input type="checkbox" name="remember" class="rounded text-royal-purple-800 focus:ring-royal-purple-800 border-gray-300">
                         <span>Lembrar de mim</span>
                     </label>
+                    <a href="{{ route('password.request') }}" class="font-bold font-heading text-royal-purple-800 hover:underline">
+                        Esqueceu sua senha?
+                    </a>
                 </div>
 
                 <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
@@ -69,7 +72,7 @@
             </form>
 
             <div class="pt-4 border-t border-magnolia-200 text-center space-y-3">
-                <a href="{{ route('estudante.entrar') }}" class="text-xs font-bold text-royal-purple-800 hover:underline flex items-center justify-center gap-1">
+                <a href="{{ route('estudante.entrar') }}" class="cursor-pointer text-xs font-bold text-royal-purple-800 hover:underline flex items-center justify-center gap-1">
                     <x-lucide-arrow-left class="w-3.5 h-3.5" />
                     <span>É aluno? Entrar com código da Sala de Aula</span>
                 </a>

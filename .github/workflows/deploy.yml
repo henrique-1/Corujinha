@@ -76,7 +76,8 @@ jobs:
             $PHP_BIN artisan optimize:clear
             $PHP_BIN artisan optimize
 
-            echo "==> Reiniciando workers de fila..."
+            echo "==> Reiniciando workers de fila e servidor Reverb..."
             $PHP_BIN artisan queue:restart || true
+            $PHP_BIN artisan reverb:restart || true
 
             echo "==> Deploy concluído com sucesso!"

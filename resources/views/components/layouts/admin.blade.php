@@ -117,5 +117,7 @@
     <footer class="mt-auto py-5 text-center text-xs text-cloud-burst-800 border-t border-magnolia-200 bg-white/70">
         Corujinha AVALIA+ · Sistema de Gestão Docente &copy; {{ date('Y') }}
     </footer>
+
+    @stack('scripts')
 </body>
 </html>

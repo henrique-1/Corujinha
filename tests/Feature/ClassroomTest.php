@@ -6,6 +6,7 @@ use App\Models\Question;
 use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -117,4 +118,77 @@ test('professor visualiza os detalhes do histórico de respostas do estudante', 
         ->assertSee('Pensei que fosse A inicialmente')
         ->assertSee('Mudei para C após a correção coletiva')
         ->assertSee('Alterou de A para C');
+});
+
+test('nao permite criar sala com codigo de acesso duplicado via requisicao', function () {
+    $professor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+
+    $assessment = Assessment::create([
+        'user_id' => $professor->id,
+        'title' => 'Simulado de Teste',
+    ]);
+
+    Classroom::create([
+        'user_id' => $professor->id,
+        'assessment_id' => $assessment->id,
+        'name' => 'Sala Original',
+        'code' => 'CODIGO-DUPLO',
+        'collective_review_enabled' => true,
+    ]);
+
+    $response = $this->actingAs($professor)->post(route('professor.salas.store'), [
+        'name' => 'Sala Duplicada',
+        'assessment_id' => $assessment->id,
+        'code' => 'CODIGO-DUPLO',
+        'collective_review_enabled' => '1',
+    ]);
+
+    $response->assertSessionHasErrors(['code']);
+    expect(Classroom::where('code', 'CODIGO-DUPLO')->count())->toBe(1);
+});
+
+test('banco de dados lanca violacao de integridade caso ocorra tentativa direta de codigo repetido', function () {
+    $professor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+
+    $assessment = Assessment::create([
+        'user_id' => $professor->id,
+        'title' => 'Simulado de Teste',
+    ]);
+
+    Classroom::create([
+        'user_id' => $professor->id,
+        'assessment_id' => $assessment->id,
+        'name' => 'Sala 1',
+        'code' => 'UNIQUE-1234',
+    ]);
+
+    expect(fn () => Classroom::create([
+        'user_id' => $professor->id,
+        'assessment_id' => $assessment->id,
+        'name' => 'Sala 2',
+        'code' => 'UNIQUE-1234',
+    ]))->toThrow(QueryException::class);
+});
+
+test('metodo generateUniqueCode gera codigo exclusivo e evita colisoes com codigos existentes', function () {
+    $professor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+
+    $assessment = Assessment::create([
+        'user_id' => $professor->id,
+        'title' => 'Simulado de Teste',
+    ]);
+
+    $existingCode = Classroom::generateUniqueCode('AVAL');
+
+    Classroom::create([
+        'user_id' => $professor->id,
+        'assessment_id' => $assessment->id,
+        'name' => 'Sala com Codigo Gerado',
+        'code' => $existingCode,
+    ]);
+
+    $newCode = Classroom::generateUniqueCode('AVAL');
+
+    expect($newCode)->not->toBe($existingCode)
+        ->and(Classroom::where('code', $newCode)->exists())->toBeFalse();
 });
