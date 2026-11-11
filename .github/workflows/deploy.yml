@@ -72,6 +72,9 @@ jobs:
             echo "==> Executando migrations do banco de dados..."
             $PHP_BIN artisan migrate --force
 
+            echo "==> Garantindo link simbólico de storage público..."
+            $PHP_BIN artisan storage:link --force --no-interaction
+
             echo "==> Atualizando caches de produção do Laravel..."
             $PHP_BIN artisan optimize:clear
             $PHP_BIN artisan optimize

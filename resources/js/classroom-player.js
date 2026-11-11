@@ -19,7 +19,7 @@ export function initClassroomPlayer() {
         const timeLimit = (q.time_limit_seconds || 180) * 1000;
         return {
             timeLimit,
-            remaining: q.saved ? Math.max(0, timeLimit - (q.saved.timeUsed || 0)) : timeLimit,
+            remaining: q.saved ? timeLimit - (q.saved.timeUsed || 0) : timeLimit,
             deadline: null,
             started: false,
             done: Boolean(q.saved),
@@ -64,11 +64,22 @@ export function initClassroomPlayer() {
     function remaining(s) {
         if (!s.started || s.done) return s.remaining;
         if (!s.deadline) return s.remaining;
-        return Math.max(0, s.deadline - Date.now());
+        return s.deadline - Date.now();
     }
 
     function formatTime(ms) {
-        const total = Math.max(0, Math.ceil(ms / 1000));
+        const isNegative = ms <= -1000;
+        const total = ms >= 0
+            ? Math.ceil(ms / 1000)
+            : Math.floor(Math.abs(ms) / 1000);
+        const m = Math.floor(total / 60);
+        const sec = total % 60;
+        const formatted = `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        return isNegative ? `-${formatted}` : formatted;
+    }
+
+    function formatElapsed(ms) {
+        const total = Math.max(0, Math.floor(ms / 1000));
         const m = Math.floor(total / 60);
         const sec = total % 60;
         return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
@@ -79,6 +90,7 @@ export function initClassroomPlayer() {
         const r = remaining(s);
         const clock = $('clock');
         const elapsed = $('elapsed');
+        const timerStatus = $('timer-status');
 
         if (clock) {
             clock.textContent = formatTime(r);
@@ -91,9 +103,22 @@ export function initClassroomPlayer() {
             }
         }
 
+        if (timerStatus) {
+            if (s.done) {
+                timerStatus.textContent = 'Tempo registrado ao concluir a questão';
+                timerStatus.className = 'block text-xs text-emerald-700 font-semibold mb-2';
+            } else if (r <= -1000) {
+                timerStatus.textContent = 'Tempo limite excedido (contagem extra ativa)';
+                timerStatus.className = 'block text-xs text-rose-600 font-semibold mb-2';
+            } else {
+                timerStatus.textContent = 'Tempo correndo automaticamente';
+                timerStatus.className = 'block text-xs text-cloud-burst-600 mb-2';
+            }
+        }
+
         if (elapsed) {
             const used = s.done ? s.timeUsed : Math.max(0, (s.timeLimit || 180000) - r);
-            elapsed.textContent = `Tempo utilizado: ${formatTime(used)}`;
+            elapsed.textContent = `Tempo utilizado: ${formatElapsed(used)}`;
         }
     }
 
@@ -156,8 +181,18 @@ export function initClassroomPlayer() {
         const charMap = new Array(n).fill(null);
 
         for (const h of highlights) {
-            const s = Math.max(0, Math.min(n, h.start));
-            const e = Math.max(0, Math.min(n, h.end));
+            let s = typeof h.start === 'number' ? Math.max(0, Math.min(n, h.start)) : -1;
+            let e = typeof h.end === 'number' ? Math.max(0, Math.min(n, h.end)) : -1;
+
+            if (h.text && (s < 0 || e <= s || rawText.slice(s, e) !== h.text)) {
+                const foundIdx = rawText.indexOf(h.text);
+                if (foundIdx === -1) {
+                    continue;
+                }
+                s = foundIdx;
+                e = foundIdx + h.text.length;
+            }
+
             for (let i = s; i < e; i++) {
                 charMap[i] = h;
             }
@@ -460,7 +495,9 @@ export function initClassroomPlayer() {
         // Justificativa
         const reasonEl = $('reason');
         if (reasonEl) {
-            reasonEl.value = s.reason;
+            if (reasonEl.value !== s.reason) {
+                reasonEl.value = s.reason;
+            }
             reasonEl.oninput = (e) => {
                 s.reason = e.target.value;
             };
@@ -666,6 +703,51 @@ export function initClassroomPlayer() {
             }
         }
     });
+
+    // Atualização em tempo real de questões editadas pelo professor via Laravel Reverb
+    if (window.Echo && config.classroomId) {
+        window.Echo.channel(`classroom.${config.classroomId}`)
+            .listen('.question.updated', (e) => {
+                const updatedQ = e?.question;
+                if (!updatedQ || !updatedQ.id) return;
+
+                const qIndex = DATA.findIndex((item) => item.id === updatedQ.id);
+                if (qIndex === -1) return;
+
+                const currentQ = DATA[qIndex];
+                const qState = items[qIndex];
+                const oldTimeLimit = qState.timeLimit || 180000;
+                const newTimeLimit = (updatedQ.time_limit_seconds || 180) * 1000;
+
+                DATA[qIndex] = {
+                    ...currentQ,
+                    ...updatedQ,
+                    index: currentQ.index,
+                    points: currentQ.points,
+                    saved: currentQ.saved,
+                };
+
+                qState.timeLimit = newTimeLimit;
+                if (!qState.done) {
+                    if (qState.started && qState.deadline) {
+                        const elapsedSoFar = Math.max(0, oldTimeLimit - remaining(qState));
+                        qState.remaining = newTimeLimit - elapsedSoFar;
+                        qState.deadline = Date.now() + qState.remaining;
+                    } else {
+                        qState.remaining = newTimeLimit;
+                    }
+                }
+
+                if (qIndex === idx) {
+                    hideFloatingToolbar();
+                    hideHighlightPopover();
+                    render();
+                    toast('Esta questão foi atualizada pelo professor.');
+                } else {
+                    toast(`A Questão ${qIndex + 1} foi atualizada pelo professor.`);
+                }
+            });
+    }
 
     // Inicia cronômetro contínuo
     const firstState = state();

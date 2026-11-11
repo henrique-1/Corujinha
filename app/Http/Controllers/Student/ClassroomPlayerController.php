@@ -10,7 +10,6 @@ use App\Models\Question;
 use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
 use App\Services\BroadcastService;
-use App\Services\RichTextSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,30 +97,16 @@ class ClassroomPlayerController extends Controller
                 ->where('question_id', $q->id)
                 ->first();
 
-            return [
-                'id' => $q->id,
+            return array_merge($q->toPlayerPayload(), [
                 'index' => $idx + 1,
-                'focus' => $q->focus ?? '',
-                'support_type' => $q->support_type,
-                'support_title' => $q->support_title ?? '',
-                'support_text' => RichTextSanitizer::toHtml($q->support_text),
-                'support_image_url' => $q->image_url,
-                'prompt' => $q->prompt,
-                'time_limit_seconds' => (int) ($q->time_limit_seconds ?? 180),
                 'points' => (float) ($q->pivot->points ?? 1.0),
-                'require_command_highlight' => (bool) $q->require_command_highlight,
-                'require_clue_highlight' => (bool) $q->require_clue_highlight,
-                'options' => $q->options->map(fn ($opt) => [
-                    'letter' => $opt->letter,
-                    'text' => $opt->text,
-                ])->values()->all(),
                 'saved' => $savedAnswer ? [
                     'answer' => $savedAnswer->initial_answer,
                     'reason' => $savedAnswer->initial_reason,
                     'markers' => $savedAnswer->initial_markers ?? [],
                     'timeUsed' => $savedAnswer->time_spent_seconds * 1000,
                 ] : null,
-            ];
+            ]);
         })->values()->all();
 
         return view('estudante.player', [

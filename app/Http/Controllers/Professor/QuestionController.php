@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Professor;
 
+use App\Events\QuestionUpdated;
 use App\Http\Controllers\Controller;
+use App\Models\Classroom;
 use App\Models\Question;
 use App\Models\QuestionOption;
+use App\Services\BroadcastService;
 use App\Services\RichTextSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -168,6 +171,15 @@ class QuestionController extends Controller
                 ['question_id' => $pergunta->id, 'letter' => $opt['letter']],
                 ['text' => $opt['text'], 'feedback' => $opt['feedback'] ?? null]
             );
+        }
+
+        $classroomIds = Classroom::whereHas('assessment.questions', fn ($q) => $q->where('questions.id', $pergunta->id))
+            ->pluck('id')
+            ->all();
+
+        if (! empty($classroomIds)) {
+            $pergunta->load('options');
+            BroadcastService::dispatch(new QuestionUpdated($pergunta, $classroomIds));
         }
 
         return redirect()->route('professor.perguntas.index')
