@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Professor;
 use App\Http\Controllers\Controller;
 use App\Models\Question;
 use App\Models\QuestionOption;
+use App\Services\RichTextSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,16 +15,38 @@ use Illuminate\View\View;
 class QuestionController extends Controller
 {
     /**
-     * Lista as perguntas cadastradas pelo professor.
+     * Lista as perguntas cadastradas pelo professor com filtros por turma/área.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
-        $questions = Auth::user()->questions()
-            ->with('options')
-            ->latest()
-            ->paginate(10);
+        $query = Auth::user()->questions()
+            ->with('options');
 
-        return view('professor.perguntas.index', compact('questions'));
+        if ($request->filled('area')) {
+            $query->where('area', $request->input('area'));
+        }
+
+        if ($request->filled('grade_level')) {
+            $query->where('grade_level', $request->input('grade_level'));
+        }
+
+        if ($request->filled('search')) {
+            $term = '%'.$request->input('search').'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('prompt', 'like', $term)
+                    ->orWhere('support_title', 'like', $term)
+                    ->orWhere('focus', 'like', $term);
+            });
+        }
+
+        $questions = $query->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        $areas = Auth::user()->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
+        $gradeLevels = Auth::user()->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
+
+        return view('professor.perguntas.index', compact('questions', 'areas', 'gradeLevels'));
     }
 
     /**
@@ -39,43 +62,25 @@ class QuestionController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'focus' => ['nullable', 'string', 'max:255'],
-            'support_type' => ['required', 'in:text,image'],
-            'support_title' => ['nullable', 'string', 'max:255'],
-            'support_text' => ['required_if:support_type,text', 'nullable', 'string'],
-            'support_image' => ['required_if:support_type,image', 'nullable', 'image', 'max:5120'], // até 5MB
-            'prompt' => ['required', 'string'],
-            'require_command_highlight' => ['nullable', 'boolean'],
-            'require_clue_highlight' => ['nullable', 'boolean'],
-            'expected_commands' => ['nullable', 'string'],
-            'command_feedback' => ['nullable', 'string'],
-            'expected_clues' => ['nullable', 'string'],
-            'clue_feedback' => ['nullable', 'string'],
-            'correct_option' => ['required', 'in:A,B,C,D,E'],
-            'options' => ['required', 'array', 'size:5'],
-            'options.*.letter' => ['required', 'in:A,B,C,D,E'],
-            'options.*.text' => ['required', 'string'],
-            'options.*.feedback' => ['nullable', 'string'],
-        ], [
-            'prompt.required' => 'O comando da questão é obrigatório.',
-            'support_text.required_if' => 'Informe o texto de apoio da questão.',
-            'support_image.required_if' => 'Envie o arquivo da imagem de apoio.',
-            'correct_option.required' => 'Selecione qual alternativa é a correta.',
-            'options.size' => 'A questão deve conter exatamente 5 alternativas (A, B, C, D e E).',
-        ]);
+        $validated = $this->validateQuestionData($request);
 
         $imagePath = null;
         if ($request->hasFile('support_image')) {
             $imagePath = $request->file('support_image')->store('questions/images', 'public');
         }
 
+        $supportTitle = $validated['support_title'] ?? null;
+        $supportText = RichTextSanitizer::sanitize($validated['support_text'] ?? null);
+
         $question = Question::create([
             'user_id' => Auth::id(),
             'focus' => $validated['focus'] ?? null,
-            'support_type' => $validated['support_type'],
-            'support_title' => $validated['support_title'] ?? null,
-            'support_text' => $validated['support_text'] ?? null,
+            'area' => $validated['area'] ?? null,
+            'grade_level' => $validated['grade_level'] ?? null,
+            'time_limit_seconds' => (int) ($validated['time_limit_seconds'] ?? 180),
+            'support_type' => $this->resolveSupportType($supportTitle, $supportText, $imagePath),
+            'support_title' => $supportTitle,
+            'support_text' => $supportText,
             'support_image_path' => $imagePath,
             'prompt' => $validated['prompt'],
             'require_command_highlight' => $request->boolean('require_command_highlight', true),
@@ -118,27 +123,16 @@ class QuestionController extends Controller
     {
         $this->authorizeQuestion($pergunta);
 
-        $validated = $request->validate([
-            'focus' => ['nullable', 'string', 'max:255'],
-            'support_type' => ['required', 'in:text,image'],
-            'support_title' => ['nullable', 'string', 'max:255'],
-            'support_text' => ['nullable', 'string'],
-            'support_image' => ['nullable', 'image', 'max:5120'],
-            'prompt' => ['required', 'string'],
-            'require_command_highlight' => ['nullable', 'boolean'],
-            'require_clue_highlight' => ['nullable', 'boolean'],
-            'expected_commands' => ['nullable', 'string'],
-            'command_feedback' => ['nullable', 'string'],
-            'expected_clues' => ['nullable', 'string'],
-            'clue_feedback' => ['nullable', 'string'],
-            'correct_option' => ['required', 'in:A,B,C,D,E'],
-            'options' => ['required', 'array', 'size:5'],
-            'options.*.letter' => ['required', 'in:A,B,C,D,E'],
-            'options.*.text' => ['required', 'string'],
-            'options.*.feedback' => ['nullable', 'string'],
-        ]);
+        $validated = $this->validateQuestionData($request);
 
         $imagePath = $pergunta->support_image_path;
+        if ($request->boolean('remove_support_image') && $imagePath) {
+            if (Storage::disk('public')->exists($imagePath)) {
+                Storage::disk('public')->delete($imagePath);
+            }
+            $imagePath = null;
+        }
+
         if ($request->hasFile('support_image')) {
             if ($imagePath && Storage::disk('public')->exists($imagePath)) {
                 Storage::disk('public')->delete($imagePath);
@@ -146,11 +140,17 @@ class QuestionController extends Controller
             $imagePath = $request->file('support_image')->store('questions/images', 'public');
         }
 
+        $supportTitle = $validated['support_title'] ?? null;
+        $supportText = RichTextSanitizer::sanitize($validated['support_text'] ?? null);
+
         $pergunta->update([
             'focus' => $validated['focus'] ?? null,
-            'support_type' => $validated['support_type'],
-            'support_title' => $validated['support_title'] ?? null,
-            'support_text' => $validated['support_text'] ?? null,
+            'area' => $validated['area'] ?? null,
+            'grade_level' => $validated['grade_level'] ?? null,
+            'time_limit_seconds' => (int) ($validated['time_limit_seconds'] ?? 180),
+            'support_type' => $this->resolveSupportType($supportTitle, $supportText, $imagePath),
+            'support_title' => $supportTitle,
+            'support_text' => $supportText,
             'support_image_path' => $imagePath,
             'prompt' => $validated['prompt'],
             'require_command_highlight' => $request->boolean('require_command_highlight'),
@@ -195,5 +195,61 @@ class QuestionController extends Controller
         if ($question->user_id !== Auth::id() && ! Auth::user()->isSuperAdmin()) {
             abort(403, 'Acesso não autorizado a esta pergunta.');
         }
+    }
+
+    /**
+     * Valida os dados de entrada de criação e edição de pergunta.
+     *
+     * @return array<string, mixed>
+     */
+    private function validateQuestionData(Request $request): array
+    {
+        return $request->validate([
+            'focus' => ['nullable', 'string', 'max:255'],
+            'area' => ['nullable', 'string', 'max:100'],
+            'grade_level' => ['nullable', 'string', 'max:100'],
+            'time_limit_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
+            'support_title' => ['nullable', 'string', 'max:255'],
+            'support_text' => ['nullable', 'string'],
+            'support_image' => ['nullable', 'image', 'max:5120'],
+            'remove_support_image' => ['nullable', 'boolean'],
+            'prompt' => ['required', 'string'],
+            'require_command_highlight' => ['nullable', 'boolean'],
+            'require_clue_highlight' => ['nullable', 'boolean'],
+            'expected_commands' => ['nullable', 'string'],
+            'command_feedback' => ['nullable', 'string'],
+            'expected_clues' => ['nullable', 'string'],
+            'clue_feedback' => ['nullable', 'string'],
+            'correct_option' => ['required', 'in:A,B,C,D,E'],
+            'options' => ['required', 'array', 'size:5'],
+            'options.*.letter' => ['required', 'in:A,B,C,D,E'],
+            'options.*.text' => ['required', 'string'],
+            'options.*.feedback' => ['nullable', 'string'],
+        ], [
+            'prompt.required' => 'O comando da questão é obrigatório.',
+            'support_image.image' => 'O arquivo enviado deve ser uma imagem válida (JPG, PNG ou WEBP).',
+            'support_image.max' => 'A imagem de apoio não pode ultrapassar 5MB.',
+            'correct_option.required' => 'Selecione qual alternativa é a correta.',
+            'options.size' => 'A questão deve conter exatamente 5 alternativas (A, B, C, D e E).',
+        ]);
+    }
+
+    /**
+     * Determina o tipo de apoio derivado do conteúdo cadastrado (texto, imagem ou misto).
+     */
+    private function resolveSupportType(?string $title, ?string $text, ?string $imagePath): string
+    {
+        $hasText = ! empty(trim((string) $title)) || ! empty(trim(strip_tags((string) $text)));
+        $hasImage = ! empty($imagePath);
+
+        if ($hasText && $hasImage) {
+            return 'mixed';
+        }
+
+        if ($hasImage) {
+            return 'image';
+        }
+
+        return 'text';
     }
 }

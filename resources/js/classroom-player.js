@@ -1,8 +1,10 @@
 /**
- * Player Dinâmico de Avaliação para Estudantes (Corujinha AVALIA+)
- * Integrado ao Backend Laravel, com suporte a texto/imagem de apoio,
+ * Player Dinâmico de Avaliação para Estudantes (Corujinha)
+ * Integrado ao Backend Laravel, com suporte híbrido a texto rico e imagem de apoio,
  * validação estrita configurável de marca-texto por questão e cronômetro contínuo.
  */
+
+import { getSelectionOffsets, renderHtmlWithHighlights } from './html-highlight';
 
 export function initClassroomPlayer() {
     const config = window.__CLASSROOM_DATA__;
@@ -11,19 +13,22 @@ export function initClassroomPlayer() {
     }
 
     const DATA = config.questions;
-    const LIMIT = 180000; // 3 minutos por questão (180.000 ms)
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-    const fresh = (q) => ({
-        remaining: LIMIT,
-        deadline: null,
-        started: false,
-        done: Boolean(q.saved),
-        timeUsed: q.saved?.timeUsed || 0,
-        answer: q.saved?.answer || '',
-        reason: q.saved?.reason || '',
-        markers: q.saved?.markers || []
-    });
+    const fresh = (q) => {
+        const timeLimit = (q.time_limit_seconds || 180) * 1000;
+        return {
+            timeLimit,
+            remaining: q.saved ? Math.max(0, timeLimit - (q.saved.timeUsed || 0)) : timeLimit,
+            deadline: null,
+            started: false,
+            done: Boolean(q.saved),
+            timeUsed: q.saved?.timeUsed || 0,
+            answer: q.saved?.answer || '',
+            reason: q.saved?.reason || '',
+            markers: q.saved?.markers || []
+        };
+    };
 
     let items = DATA.map(fresh);
     let idx = 0;
@@ -87,7 +92,7 @@ export function initClassroomPlayer() {
         }
 
         if (elapsed) {
-            const used = s.done ? s.timeUsed : Math.max(0, LIMIT - r);
+            const used = s.done ? s.timeUsed : Math.max(0, (s.timeLimit || 180000) - r);
             elapsed.textContent = `Tempo utilizado: ${formatTime(used)}`;
         }
     }
@@ -185,7 +190,22 @@ export function initClassroomPlayer() {
         return html;
     }
 
-    function renderTargetText(target) {
+    function buildPlayerMarkElement(m, sliceText) {
+        const mark = document.createElement('mark');
+        const isCommand = m.kind === 'command';
+        const kindLabel = isCommand ? 'Comando (Amarelo)' : 'Pista (Azul)';
+        const isSelected = selectedHighlightId === m.id;
+        const selectedClass = isSelected ? ' ring-2 ring-purple-900 ring-offset-1 font-semibold' : '';
+
+        mark.dataset.highlightId = m.id;
+        mark.dataset.kind = m.kind;
+        mark.className = `highlight${selectedClass}`;
+        mark.title = kindLabel;
+        mark.textContent = sliceText;
+        return mark;
+    }
+
+    async function renderTargetText(target) {
         const q = DATA[idx];
         const s = state();
         const highlights = (s.markers || []).filter((m) => m.target === target);
@@ -194,18 +214,27 @@ export function initClassroomPlayer() {
         if (!el) return;
 
         if (target === 'source') {
-            const isImage = (q.support_type === 'image');
-            el.hidden = isImage;
             const imgEl = $('source-img');
             if (imgEl) {
-                if (isImage && q.support_image_url) {
+                if (q.support_image_url) {
                     imgEl.src = q.support_image_url;
                     imgEl.hidden = false;
                 } else {
                     imgEl.hidden = true;
+                    imgEl.removeAttribute('src');
                 }
             }
-            if (isImage) return;
+
+            if (!raw || !raw.trim()) {
+                el.innerHTML = '';
+                el.hidden = true;
+                return;
+            }
+
+            el.hidden = false;
+            await renderHtmlWithHighlights(el, raw, highlights, buildPlayerMarkElement);
+            attachHighlightListeners(el);
+            return;
         }
 
         if (!raw) {
@@ -281,7 +310,8 @@ export function initClassroomPlayer() {
     }
 
     function applyHighlightToTarget(target, kind, start, end) {
-        const raw = getTargetRawText(target);
+        const targetEl = getTargetElement(target);
+        const raw = target === 'source' ? (targetEl?.textContent || '') : getTargetRawText(target);
         if (!raw || start >= end) return false;
 
         const s = state();
@@ -335,14 +365,23 @@ export function initClassroomPlayer() {
         const targetEl = getTargetElement(target);
         if (!raw || !targetEl) return;
 
-        const preRange = document.createRange();
-        preRange.selectNodeContents(targetEl);
-        preRange.setEnd(range.startContainer, range.startOffset);
-        const start = preRange.toString().length;
-        const length = range.toString().length;
-        const end = start + length;
+        let start;
+        let end;
 
-        if (length === 0 || start >= end) return;
+        if (target === 'source') {
+            const offsets = getSelectionOffsets(targetEl, range);
+            if (!offsets) return;
+            start = offsets.start;
+            end = offsets.end;
+        } else {
+            const preRange = document.createRange();
+            preRange.selectNodeContents(targetEl);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            start = preRange.toString().length;
+            const length = range.toString().length;
+            end = start + length;
+            if (length === 0 || start >= end) return;
+        }
 
         currentSelection = { target, start, end };
 
@@ -479,7 +518,7 @@ export function initClassroomPlayer() {
         // Para o cronômetro desta questão
         if (!s.done) {
             const r = remaining(s);
-            s.timeUsed = Math.max(0, LIMIT - r);
+            s.timeUsed = Math.max(0, (s.timeLimit || 180000) - r);
             s.remaining = r;
             s.deadline = null;
             s.done = true;

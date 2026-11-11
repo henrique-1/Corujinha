@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? 'Painel de Gestão · Corujinha AVALIA+' }}</title>
+    <title>{{ $title ?? 'Painel de Gestão · Corujinha' }}</title>
 
     <link rel="icon" type="image/x-icon" href="{{ asset('images/icon/Corujinha.ico') }}">
     <link rel="shortcut icon" href="{{ asset('images/icon/Corujinha.ico') }}">
@@ -23,7 +23,7 @@
                         <picture>
                             <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
                             <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                            <img src="{{ asset('images/logo/Corujinha_AVALIA_Mais_300_DPI.png') }}" alt="Corujinha AVALIA+" class="h-10 w-auto object-contain">
+                            <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-10 w-auto object-contain">
                         </picture>
                         <span class="text-xs px-2.5 py-0.5 rounded-full font-bold font-heading {{ auth()->user()->isSuperAdmin() ? 'bg-broom-500/20 text-broom-300 border border-broom-500/30' : 'bg-shocking-pink-500/20 text-shocking-pink-200 border border-shocking-pink-400/30' }}">
                             {{ auth()->user()->isSuperAdmin() ? 'Super-Usuário' : 'Painel do Professor' }}
@@ -115,7 +115,7 @@
     </main>
 
     <footer class="mt-auto py-5 text-center text-xs text-cloud-burst-800 border-t border-magnolia-200 bg-white/70">
-        Corujinha AVALIA+ · Sistema de Gestão Docente &copy; {{ date('Y') }}
+        Corujinha · Plataforma Aberta e Gratuita de Aprendizagem e Avaliação &copy; {{ date('Y') }}
     </footer>
 
     @stack('scripts')

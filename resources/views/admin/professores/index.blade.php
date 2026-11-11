@@ -1,4 +1,4 @@
-<x-layouts.admin title="Gestão de Professores · Corujinha AVALIA+">
+<x-layouts.admin title="Gestão de Professores · Corujinha">
     <div class="space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>

@@ -1,4 +1,4 @@
-<x-layouts.admin title="Nova Sala de Aula · Corujinha AVALIA+">
+<x-layouts.admin title="Nova Sala de Aula · Corujinha">
     <div class="max-w-2xl mx-auto space-y-6">
         <div>
             <a href="{{ route('professor.salas.index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-royal-purple-800 hover:text-royal-purple-900 hover:underline mb-2 transition">

@@ -60,4 +60,40 @@ class StudentAttempt extends Model
 
         return $correct;
     }
+
+    /**
+     * Retorna a pontuação proporcional/ponderada obtida pelo estudante.
+     */
+    public function earnedPoints(): float
+    {
+        $this->loadMissing(['classroom.assessment.questions', 'answers']);
+        $assessment = $this->classroom?->assessment;
+        if (! $assessment) {
+            return (float) $this->score;
+        }
+
+        $pointsMap = $assessment->questions->pluck('pivot.points', 'id');
+
+        return (float) $this->answers->sum(function (StudentAnswer $ans) use ($pointsMap) {
+            $isCorrect = ($this->status === 'reviewed' || $ans->reviewed_answer !== null)
+                ? (bool) $ans->is_correct_final
+                : (bool) $ans->is_correct_initial;
+
+            if (! $isCorrect) {
+                return 0.0;
+            }
+
+            return (float) ($pointsMap[$ans->question_id] ?? 1.0);
+        });
+    }
+
+    /**
+     * Retorna o total de pontos possíveis da avaliação vinculada a esta tentativa.
+     */
+    public function totalPossiblePoints(): float
+    {
+        $this->loadMissing(['classroom.assessment.questions']);
+
+        return (float) ($this->classroom?->assessment?->totalPoints() ?? $this->answers()->count());
+    }
 }

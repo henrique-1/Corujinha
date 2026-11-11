@@ -1,4 +1,4 @@
-<x-layouts.admin title="Central de Segurança · Corujinha AVALIA+">
+<x-layouts.admin title="Central de Segurança · Corujinha">
     <div class="space-y-6">
         <div>
             <h1 class="text-2xl font-extrabold font-heading text-cloud-burst-950 tracking-tight">
@@ -128,7 +128,10 @@
                         @endforelse
                     </div>
 
-                    <button id="btn-register-passkey" type="button" class="w-full cursor-pointer py-2.5 px-4 rounded-xl bg-white border border-magnolia-300 hover:border-royal-purple-800 text-cloud-burst-950 font-bold font-heading text-xs shadow-xs transition flex items-center justify-center gap-2">
+                    <button id="btn-register-passkey" type="button"
+                            data-options-url="{{ route('security.passkey.options') }}"
+                            data-store-url="{{ route('security.passkey.store') }}"
+                            class="w-full cursor-pointer py-2.5 px-4 rounded-xl bg-white border border-magnolia-300 hover:border-royal-purple-800 text-cloud-burst-950 font-bold font-heading text-xs shadow-xs transition flex items-center justify-center gap-2">
                         <x-lucide-plus class="w-4 h-4 text-royal-purple-800" />
                         <span>Registrar Nova Passkey neste Dispositivo</span>
                     </button>
@@ -136,61 +139,4 @@
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.getElementById('btn-register-passkey');
-            if (!btn) return;
-
-            btn.addEventListener('click', async () => {
-                if (!window.PublicKeyCredential) {
-                    alert('Seu navegador não possui suporte a Passkeys (WebAuthn).');
-                    return;
-                }
-
-                try {
-                    const res = await fetch("{{ route('security.passkey.options') }}");
-                    const options = await res.json();
-
-                    options.challenge = Uint8Array.from(atob(btoa(options.challenge)), c => c.charCodeAt(0));
-                    options.user.id = new TextEncoder().encode(options.user.id);
-
-                    if (options.excludeCredentials) {
-                        options.excludeCredentials = options.excludeCredentials.map(c => ({
-                            ...c,
-                            id: new TextEncoder().encode(c.id)
-                        }));
-                    }
-
-                    const cred = await navigator.credentials.create({ publicKey: options });
-                    if (cred) {
-                        const name = prompt('Dê um nome para esta chave (ex: Notebook Lenovo, Celular)', 'Minha Passkey');
-                        const saveRes = await fetch("{{ route('security.passkey.store') }}", {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                            },
-                            body: JSON.stringify({
-                                id: cred.id,
-                                rawId: btoa(String.fromCharCode(...new Uint8Array(cred.rawId))),
-                                name: name || 'Minha Passkey'
-                            })
-                        });
-
-                        if (saveRes.ok) {
-                            alert('Passkey registrada com sucesso!');
-                            window.location.reload();
-                        } else {
-                            alert('Erro ao registrar a Passkey no servidor.');
-                        }
-                    }
-                } catch (err) {
-                    if (err.name !== 'NotAllowedError') {
-                        alert('Erro ao criar Passkey: ' + err.message);
-                    }
-                }
-            });
-        });
-    </script>
 </x-layouts.admin>

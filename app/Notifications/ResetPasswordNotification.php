@@ -41,9 +41,9 @@ class ResetPasswordNotification extends Notification
         $shieldIcon = MailIcon::shieldCheck('#623bae', 16);
 
         return (new MailMessage)
-            ->subject('Recuperação de Senha · Corujinha AVALIA+')
+            ->subject('Recuperação de Senha · Corujinha')
             ->greeting("Olá, {$notifiable->name}!")
-            ->line('Recebemos uma solicitação para redefinir a senha da sua conta no **Corujinha AVALIA+**.')
+            ->line('Recebemos uma solicitação para redefinir a senha da sua conta no **Corujinha**.')
             ->line('Para escolher uma nova senha, clique no botão seguro abaixo:')
             ->action('Redefinir Minha Senha', $resetUrl)
             ->line(new HtmlString(
@@ -57,6 +57,6 @@ class ResetPasswordNotification extends Notification
                 .'</div>'
             ))
             ->line('Se você não solicitou a redefinição de senha, nenhuma ação é necessária e sua senha atual permanecerá segura.')
-            ->salutation('Atenciosamente, Equipe Corujinha AVALIA+');
+            ->salutation('Atenciosamente, Equipe Corujinha');
     }
 }

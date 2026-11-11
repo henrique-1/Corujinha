@@ -1,4 +1,4 @@
-<x-layouts.admin :title="'Histórico de ' . $attempt->student_name . ' · Corujinha AVALIA+'">
+<x-layouts.admin :title="'Histórico de ' . $attempt->student_name . ' · Corujinha'">
     <div class="space-y-6">
         <div>
             <a href="{{ route('professor.salas.show', $classroom) }}" class="inline-flex items-center gap-1.5 text-xs font-bold font-heading text-royal-purple-800 hover:text-royal-purple-900 hover:underline mb-2 transition">
@@ -16,8 +16,12 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="bg-royal-purple-50 border border-royal-purple-200 px-4 py-2.5 rounded-2xl text-center">
-                        <span class="text-[10px] uppercase font-extrabold font-heading text-royal-purple-800 block">Pontuação Final</span>
+                        <span class="text-[10px] uppercase font-extrabold font-heading text-royal-purple-800 block">Acertos</span>
                         <span class="text-xl font-black font-heading text-royal-purple-900">{{ $attempt->score }} / {{ $questions->count() }}</span>
+                    </div>
+                    <div class="bg-broom-100 border border-broom-300 px-4 py-2.5 rounded-2xl text-center">
+                        <span class="text-[10px] uppercase font-extrabold font-heading text-broom-950 block">Nota / Pontos</span>
+                        <span class="text-xl font-black font-heading text-broom-950">{{ number_format($attempt->earnedPoints(), 1, ',', '.') }} / {{ number_format($attempt->totalPossiblePoints(), 1, ',', '.') }}</span>
                     </div>
                 </div>
             </div>

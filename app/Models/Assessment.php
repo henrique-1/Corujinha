@@ -26,9 +26,17 @@ class Assessment extends Model
     public function questions(): BelongsToMany
     {
         return $this->belongsToMany(Question::class, 'assessment_question')
-            ->withPivot('order')
+            ->withPivot(['order', 'points'])
             ->orderByPivot('order')
             ->withTimestamps();
+    }
+
+    /**
+     * Retorna a pontuação total máxima da avaliação.
+     */
+    public function totalPoints(): float
+    {
+        return (float) $this->questions->sum(fn ($q) => (float) ($q->pivot->points ?? 1.0));
     }
 
     public function classrooms(): HasMany

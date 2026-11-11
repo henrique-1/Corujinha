@@ -45,6 +45,8 @@ Route::prefix('sala')->name('estudante.')->group(function () {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login/passkey/options', [AuthController::class, 'passkeyLoginOptions'])->name('login.passkey.options');
+    Route::post('/login/passkey', [AuthController::class, 'passkeyLoginVerify'])->name('login.passkey.verify');
 
     Route::get('/login/totp', [AuthController::class, 'showTotpChallenge'])->name('login.totp');
     Route::post('/login/totp', [AuthController::class, 'verifyTotp']);

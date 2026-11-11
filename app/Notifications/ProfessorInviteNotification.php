@@ -36,9 +36,9 @@ class ProfessorInviteNotification extends Notification
         $shieldIcon = MailIcon::shieldCheck('#623bae', 16);
 
         return (new MailMessage)
-            ->subject('Convite de Acesso · Corujinha AVALIA+')
+            ->subject('Convite de Acesso · Corujinha')
             ->greeting("Olá, {$notifiable->name}!")
-            ->line('Você foi cadastrado como Professor no sistema **Corujinha AVALIA+**.')
+            ->line('Você foi cadastrado como Professor no sistema **Corujinha**.')
             ->line('Para finalizar o seu cadastro e definir sua senha e CPF com segurança, clique no botão seguro abaixo:')
             ->action('Finalizar Meu Cadastro', $activationUrl)
             ->line(new HtmlString(
@@ -47,6 +47,6 @@ class ProfessorInviteNotification extends Notification
                 .'</div>'
             ))
             ->line('Se você não solicitou este acesso, desconsidere este e-mail.')
-            ->salutation('Atenciosamente, Equipe Corujinha AVALIA+');
+            ->salutation('Atenciosamente, Equipe Corujinha');
     }
 }

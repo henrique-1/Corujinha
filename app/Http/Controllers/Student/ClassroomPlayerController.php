@@ -9,6 +9,8 @@ use App\Models\Classroom;
 use App\Models\Question;
 use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
+use App\Services\BroadcastService;
+use App\Services\RichTextSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -62,7 +64,7 @@ class ClassroomPlayerController extends Controller
             'status' => 'in_progress',
         ]);
 
-        broadcast(new StudentJoinedClassroom($attempt));
+        BroadcastService::dispatch(new StudentJoinedClassroom($attempt));
 
         session([
             'current_attempt_id' => $attempt->id,
@@ -102,9 +104,11 @@ class ClassroomPlayerController extends Controller
                 'focus' => $q->focus ?? '',
                 'support_type' => $q->support_type,
                 'support_title' => $q->support_title ?? '',
-                'support_text' => $q->support_text ?? '',
+                'support_text' => RichTextSanitizer::toHtml($q->support_text),
                 'support_image_url' => $q->image_url,
                 'prompt' => $q->prompt,
+                'time_limit_seconds' => (int) ($q->time_limit_seconds ?? 180),
+                'points' => (float) ($q->pivot->points ?? 1.0),
                 'require_command_highlight' => (bool) $q->require_command_highlight,
                 'require_clue_highlight' => (bool) $q->require_clue_highlight,
                 'options' => $q->options->map(fn ($opt) => [
@@ -192,7 +196,7 @@ class ClassroomPlayerController extends Controller
 
         $attempt->recalculateScore();
 
-        broadcast(new StudentAttemptUpdated($attempt));
+        BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
 
         return response()->json(['success' => true]);
     }
@@ -215,7 +219,7 @@ class ClassroomPlayerController extends Controller
         ]);
         $attempt->recalculateScore();
 
-        broadcast(new StudentAttemptUpdated($attempt));
+        BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
 
         // Se a sala tem revisão coletiva ativada, direciona para a tela de revisão
         if ($classroom->collective_review_enabled) {
@@ -305,7 +309,7 @@ class ClassroomPlayerController extends Controller
         ]);
         $attempt->recalculateScore();
 
-        broadcast(new StudentAttemptUpdated($attempt));
+        BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
 
         return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
     }
@@ -328,6 +332,8 @@ class ClassroomPlayerController extends Controller
 
         $totalQuestions = $questions->count();
         $score = $attempt->recalculateScore();
+        $earnedPoints = $attempt->earnedPoints();
+        $totalPossiblePoints = $attempt->totalPossiblePoints();
 
         return view('estudante.resultado', [
             'classroom' => $classroom,
@@ -336,6 +342,8 @@ class ClassroomPlayerController extends Controller
             'answers' => $answers,
             'totalQuestions' => $totalQuestions,
             'score' => $score,
+            'earnedPoints' => $earnedPoints,
+            'totalPossiblePoints' => $totalPossiblePoints,
         ]);
     }
 

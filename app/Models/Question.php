@@ -16,6 +16,9 @@ class Question extends Model
     protected $fillable = [
         'user_id',
         'focus',
+        'area',
+        'grade_level',
+        'time_limit_seconds',
         'support_type',
         'support_title',
         'support_text',
@@ -35,6 +38,7 @@ class Question extends Model
         return [
             'require_command_highlight' => 'boolean',
             'require_clue_highlight' => 'boolean',
+            'time_limit_seconds' => 'integer',
         ];
     }
 
@@ -51,7 +55,7 @@ class Question extends Model
     public function assessments(): BelongsToMany
     {
         return $this->belongsToMany(Assessment::class, 'assessment_question')
-            ->withPivot('order')
+            ->withPivot(['order', 'points'])
             ->withTimestamps();
     }
 
@@ -60,14 +64,25 @@ class Question extends Model
         return $this->hasMany(StudentAnswer::class);
     }
 
+    public function hasTextSupport(): bool
+    {
+        return ! empty(trim((string) $this->support_title))
+            || ! empty(trim(strip_tags((string) $this->support_text)));
+    }
+
+    public function hasImageSupport(): bool
+    {
+        return ! empty($this->support_image_path);
+    }
+
     public function isImageSupport(): bool
     {
-        return $this->support_type === 'image' && ! empty($this->support_image_path);
+        return $this->hasImageSupport();
     }
 
     public function getImageUrlAttribute(): ?string
     {
-        if (! $this->isImageSupport()) {
+        if (! $this->hasImageSupport()) {
             return null;
         }
 

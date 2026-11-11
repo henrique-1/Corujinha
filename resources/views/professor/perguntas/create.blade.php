@@ -1,4 +1,4 @@
-<x-layouts.admin title="Nova Pergunta · Corujinha AVALIA+">
+<x-layouts.admin title="Nova Pergunta · Corujinha">
     <div class="max-w-4xl mx-auto space-y-6">
         <div>
             <a href="{{ route('professor.perguntas.index') }}" class="text-xs font-bold font-heading text-royal-purple-800 hover:underline mb-2 inline-flex items-center gap-1">
@@ -20,43 +20,53 @@
             <div class="bg-white rounded-2xl p-6 border border-magnolia-200 shadow-xs space-y-5">
                 <h2 class="text-base font-bold font-heading text-cloud-burst-950 flex items-center gap-2">
                     <span class="w-6 h-6 rounded-full bg-royal-purple-100 text-royal-purple-800 inline-flex items-center justify-center text-xs">1</span>
-                    <span>Suporte da Questão (Texto ou Imagem)</span>
+                    <span>Suporte da Questão (Texto e/ou Imagem)</span>
                 </h2>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="area" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Área do Conhecimento / Disciplina
+                        </label>
+                        <input id="area" name="area" type="text" value="{{ old('area') }}" placeholder="Ex.: Língua Portuguesa, Matemática, Ciências..."
+                               class="w-full h-[42px] px-4 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label for="grade_level" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Turma / Ano Escolar
+                        </label>
+                        <input id="grade_level" name="grade_level" type="text" value="{{ old('grade_level') }}" placeholder="Ex.: 6º Ano, 9º Ano, 3ª Série EM..."
+                               class="w-full h-[42px] px-4 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-end">
+                    <div>
+                        <label for="time_limit_seconds" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Tempo Limite por Questão <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <select id="time_limit_seconds" name="time_limit_seconds" class="w-full h-[42px] px-4 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none bg-white">
+                            <option value="60" {{ old('time_limit_seconds') == '60' ? 'selected' : '' }}>1 minuto (60s)</option>
+                            <option value="120" {{ old('time_limit_seconds') == '120' ? 'selected' : '' }}>2 minutos (120s)</option>
+                            <option value="180" {{ old('time_limit_seconds', '180') == '180' ? 'selected' : '' }}>3 minutos (180s - Padrão)</option>
+                            <option value="240" {{ old('time_limit_seconds') == '240' ? 'selected' : '' }}>4 minutos (240s)</option>
+                            <option value="300" {{ old('time_limit_seconds') == '300' ? 'selected' : '' }}>5 minutos (300s)</option>
+                            <option value="600" {{ old('time_limit_seconds') == '600' ? 'selected' : '' }}>10 minutos (600s)</option>
+                        </select>
+                    </div>
+
                     <div>
                         <label for="focus" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
                             Foco Pedagógico / Habilidade (Opcional)
                         </label>
                         <input id="focus" name="focus" type="text" value="{{ old('focus') }}" placeholder="Ex.: Efeito do adjetivo, Finalidade do texto..."
-                               class="w-full px-4 py-2.5 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                            Tipo de Apoio <span class="text-shocking-pink-600">*</span>
-                        </label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-royal-purple-50/50 has-checked:border-royal-purple-800 has-checked:bg-royal-purple-50">
-                                <input type="radio" name="support_type" value="text" {{ old('support_type', 'text') === 'text' ? 'checked' : '' }} onchange="toggleSupportType('text')" class="text-royal-purple-800 focus:ring-royal-purple-800">
-                                <span class="text-xs font-bold font-heading text-cloud-burst-950 inline-flex items-center gap-1.5">
-                                    <x-lucide-file-text class="w-3.5 h-3.5 text-royal-purple-800" />
-                                    <span>Texto de Apoio</span>
-                                </span>
-                            </label>
-                            <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-royal-purple-50/50 has-checked:border-royal-purple-800 has-checked:bg-royal-purple-50">
-                                <input type="radio" name="support_type" value="image" {{ old('support_type') === 'image' ? 'checked' : '' }} onchange="toggleSupportType('image')" class="text-royal-purple-800 focus:ring-royal-purple-800">
-                                <span class="text-xs font-bold font-heading text-cloud-burst-950 inline-flex items-center gap-1.5">
-                                    <x-lucide-image class="w-3.5 h-3.5 text-royal-purple-800" />
-                                    <span>Imagem de Apoio</span>
-                                </span>
-                            </label>
-                        </div>
+                               class="w-full h-[42px] px-4 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
                     </div>
                 </div>
 
-                {{-- Campos para Texto de Apoio --}}
-                <div id="text-support-fields" class="space-y-4 pt-2 border-t border-magnolia-100">
+                {{-- Campos de Apoio Híbrido (Título, Texto Complexo e Imagem disponíveis simultaneamente) --}}
+                <div id="text-support-fields" class="space-y-4 pt-4 border-t border-magnolia-100">
                     <div>
                         <label for="support_title" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
                             Título da Fonte / Texto de Apoio
@@ -69,16 +79,14 @@
                         <label for="support_text" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
                             Corpo do Texto de Apoio
                         </label>
-                        <textarea id="support_text" name="support_text" rows="5" placeholder="Insira o texto que o estudante lerá e onde fará as marcações com marca-texto..."
-                                  class="w-full px-4 py-2.5 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">{{ old('support_text') }}</textarea>
+                        @include('professor.perguntas.partials._rich-text-editor', ['value' => old('support_text', '')])
                     </div>
                 </div>
 
-                {{-- Campo para Imagem de Apoio --}}
-                <div id="image-support-fields" class="space-y-4 pt-2 border-t border-magnolia-100 hidden">
+                <div id="image-support-fields" class="space-y-4 pt-4 border-t border-magnolia-100">
                     <div>
                         <label for="support_image" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                            Arquivo da Imagem de Apoio (JPG, PNG ou WEBP até 5MB)
+                            Imagem de Apoio (Opcional · JPG, PNG ou WEBP até 5MB)
                         </label>
                         <input id="support_image" name="support_image" type="file" accept="image/*"
                                class="w-full px-4 py-2.5 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:font-heading file:bg-royal-purple-100 file:text-royal-purple-800 hover:file:bg-royal-purple-200">
@@ -171,9 +179,16 @@
                     <div class="space-y-3">
                         <div>
                             <span class="text-[11px] font-bold font-heading text-royal-purple-900 uppercase tracking-wider block mb-1">
+                                Título da Fonte / Texto de Apoio (Área Selecionável):
+                            </span>
+                            <div id="preview-support-title" class="p-3.5 rounded-xl bg-white border border-magnolia-300 text-sm font-bold font-heading text-cloud-burst-950 leading-relaxed min-h-[44px] select-text"></div>
+                        </div>
+
+                        <div>
+                            <span class="text-[11px] font-bold font-heading text-royal-purple-900 uppercase tracking-wider block mb-1">
                                 Texto de Apoio (Área Selecionável):
                             </span>
-                            <div id="preview-support-text" class="p-4 rounded-xl bg-white border border-magnolia-300 text-sm text-cloud-burst-950 leading-relaxed min-h-[70px] select-text"></div>
+                            <div id="preview-support-text" class="rich-text-content p-4 rounded-xl bg-white border border-magnolia-300 text-sm text-cloud-burst-950 leading-relaxed min-h-[70px] select-text"></div>
                         </div>
 
                         <div>
@@ -285,25 +300,4 @@
             </div>
         </form>
     </div>
-
-    <script>
-        function toggleSupportType(type) {
-            const textFields = document.getElementById('text-support-fields');
-            const imgFields = document.getElementById('image-support-fields');
-            if (type === 'image') {
-                textFields.classList.add('hidden');
-                imgFields.classList.remove('hidden');
-            } else {
-                imgFields.classList.add('hidden');
-                textFields.classList.remove('hidden');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const checked = document.querySelector('input[name="support_type"]:checked');
-            if (checked) {
-                toggleSupportType(checked.value);
-            }
-        });
-    </script>
 </x-layouts.admin>

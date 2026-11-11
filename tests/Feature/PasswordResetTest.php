@@ -98,12 +98,12 @@ test('token de recuperação expira após 30 minutos', function () {
 test('endpoints de preview de email em desenvolvimento respondem com sucesso', function () {
     $convite = $this->get(route('dev.emails.convite'));
     $convite->assertOk()
-        ->assertSee('Corujinha AVALIA+')
+        ->assertSee('Corujinha')
         ->assertSee('Finalizar Meu Cadastro');
 
     $reset = $this->get(route('dev.emails.reset'));
     $reset->assertOk()
-        ->assertSee('Corujinha AVALIA+')
+        ->assertSee('Corujinha')
         ->assertSee('Redefinir Minha Senha')
         ->assertSee('expira em 30 minutos');
 });

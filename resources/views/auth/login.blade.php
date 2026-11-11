@@ -1,14 +1,14 @@
-<x-layouts.app title="Acesso Administrativo · Corujinha AVALIA+">
+<x-layouts.app title="Acesso Administrativo · Corujinha">
     <div class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200">
             <div class="text-center flex flex-col items-center">
                 <picture class="mb-4 block">
                     <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
                     <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                    <img src="{{ asset('images/logo/Corujinha_AVALIA_Mais_300_DPI.png') }}" alt="Corujinha AVALIA+" class="h-16 w-auto object-contain mx-auto">
+                    <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-16 w-auto object-contain mx-auto">
                 </picture>
 
-                <span class="inline-block px-3 py-1 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-800 mb-1">
+                <span id="login-passkey-hint" class="inline-block px-3 py-1 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-800 mb-1">
                     Painel Administrativo & Docente
                 </span>
                 <p class="mt-1 text-xs text-cloud-burst-800">
@@ -34,6 +34,11 @@
                 </div>
             @endif
 
+            <div id="passkey-login-error" class="hidden p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800 flex items-center gap-1.5" role="alert">
+                <x-lucide-alert-circle class="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span data-passkey-error-text></span>
+            </div>
+
             <form class="space-y-4" action="{{ route('login') }}" method="POST">
                 @csrf
 
@@ -41,7 +46,7 @@
                     <label for="email" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
                         E-mail
                     </label>
-                    <input id="email" name="email" type="email" autocomplete="email" required value="{{ old('email') }}"
+                    <input id="email" name="email" type="email" autocomplete="email webauthn" autofocus aria-describedby="login-passkey-hint" required value="{{ old('email') }}"
                            class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-800/20 focus:outline-none transition"
                            placeholder="seu.email@escola.com">
                 </div>
@@ -70,6 +75,20 @@
                     <x-lucide-arrow-right class="w-4 h-4" />
                 </button>
             </form>
+
+            <div class="relative flex items-center py-1">
+                <div class="grow border-t border-magnolia-200"></div>
+                <span class="shrink mx-3 text-[11px] font-bold font-heading text-cloud-burst-600 uppercase tracking-wider">ou</span>
+                <div class="grow border-t border-magnolia-200"></div>
+            </div>
+
+            <button id="btn-login-passkey" type="button"
+                    data-options-url="{{ route('login.passkey.options') }}"
+                    data-verify-url="{{ route('login.passkey.verify') }}"
+                    class="w-full cursor-pointer py-3 px-4 rounded-xl bg-white border border-magnolia-300 hover:border-royal-purple-800 hover:bg-royal-purple-50/50 text-cloud-burst-950 font-bold font-heading text-sm shadow-xs transition flex items-center justify-center gap-2">
+                <x-lucide-key-round class="w-4 h-4 text-royal-purple-800" />
+                <span>Entrar com Passkey</span>
+            </button>
 
             <div class="pt-4 border-t border-magnolia-200 text-center space-y-3">
                 <a href="{{ route('estudante.entrar') }}" class="cursor-pointer text-xs font-bold text-royal-purple-800 hover:underline flex items-center justify-center gap-1">
