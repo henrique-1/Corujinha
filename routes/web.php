@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Route;
 */
 Route::get('/', [ClassroomPlayerController::class, 'showEnter'])->name('home');
 Route::get('/_boost/browser-logs', fn () => redirect()->route('home'));
+Route::get('/midia/questoes/{question}', [QuestionController::class, 'showSupportImage'])->name('midia.questao');
 
 Route::prefix('sala')->name('estudante.')->group(function () {
     Route::get('/', [ClassroomPlayerController::class, 'showEnter'])->name('entrar');

@@ -20,11 +20,7 @@
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-6">
                     <a href="{{ auth()->user()->isSuperAdmin() ? route('admin.professores.index') : route('professor.salas.index') }}" class="flex items-center gap-3">
-                        <picture>
-                            <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
-                            <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                            <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-10 w-auto object-contain">
-                        </picture>
+                        <x-brand-logo variant="horizontal" img-class="h-10 w-auto object-contain" />
                         <span class="text-xs px-2.5 py-0.5 rounded-full font-bold font-heading {{ auth()->user()->isSuperAdmin() ? 'bg-broom-500/20 text-broom-300 border border-broom-500/30' : 'bg-shocking-pink-500/20 text-shocking-pink-200 border border-shocking-pink-400/30' }}">
                             {{ auth()->user()->isSuperAdmin() ? 'Super-Usuário' : 'Painel do Professor' }}
                         </span>

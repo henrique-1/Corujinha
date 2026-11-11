@@ -2,11 +2,7 @@
     <div class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-lg w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200">
             <div class="text-center flex flex-col items-center">
-                <picture class="mb-3 block">
-                    <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
-                    <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                    <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-14 w-auto object-contain mx-auto">
-                </picture>
+                <x-brand-logo variant="horizontal" picture-class="mb-3 block" img-class="h-14 w-auto object-contain mx-auto" />
 
                 <span class="inline-block px-3 py-1 rounded-full text-xs font-bold font-heading bg-emerald-100 text-emerald-800 mb-2">
                     Convite de Professor

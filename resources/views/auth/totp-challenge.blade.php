@@ -1,11 +1,7 @@
 <x-layouts.app title="Autenticação em Duas Etapas · Corujinha">
     <div class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200 text-center">
-            <picture class="mb-3 block">
-                <source srcset="{{ asset('images/logo/logo-icon.avif') }}" type="image/avif">
-                <source srcset="{{ asset('images/logo/logo-icon.webp') }}" type="image/webp">
-                <img src="{{ asset('images/logo/logo-icon.webp') }}" alt="Corujinha" class="h-14 w-auto object-contain mx-auto">
-            </picture>
+            <x-brand-logo variant="icon" picture-class="mb-3 block" img-class="h-14 w-auto object-contain mx-auto" />
 
             <h1 class="text-2xl font-extrabold font-heading text-cloud-burst-950 tracking-tight">
                 Verificação em Duas Etapas (TOTP)
