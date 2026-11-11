@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\RichTextSanitizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -89,5 +90,32 @@ class Question extends Model
             'question' => $this->id,
             'v' => $this->updated_at?->timestamp ?? 1,
         ], false);
+    }
+
+    /**
+     * Serializa a questão no formato esperado pelo player interativo do estudante.
+     *
+     * @return array<string, mixed>
+     */
+    public function toPlayerPayload(): array
+    {
+        $this->loadMissing('options');
+
+        return [
+            'id' => $this->id,
+            'focus' => $this->focus ?? '',
+            'support_type' => $this->support_type,
+            'support_title' => $this->support_title ?? '',
+            'support_text' => RichTextSanitizer::toHtml($this->support_text),
+            'support_image_url' => $this->image_url,
+            'prompt' => $this->prompt,
+            'time_limit_seconds' => (int) ($this->time_limit_seconds ?? 180),
+            'require_command_highlight' => (bool) $this->require_command_highlight,
+            'require_clue_highlight' => (bool) $this->require_clue_highlight,
+            'options' => $this->options->map(fn (QuestionOption $opt): array => [
+                'letter' => $opt->letter,
+                'text' => $opt->text,
+            ])->values()->all(),
+        ];
     }
 }

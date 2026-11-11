@@ -178,3 +178,39 @@ test('estudante que seleciona comando e pista e acerta a alternativa tem respost
         ->assertSee('grata surpresa')
         ->assertSee('adjetivo contribui');
 });
+
+test('registra tempo utilizado acima do limite e exibe no historico do professor', function () {
+    $attempt = StudentAttempt::create([
+        'classroom_id' => $this->classroom->id,
+        'student_name' => 'Beatriz Silva',
+        'started_at' => now(),
+    ]);
+
+    // Limite padrão da questão é 180s (03:00). Aluno utilizou 245s (04:05 -> -01:05 no timer).
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->postJson(route('estudante.salvar_resposta', $this->classroom->code), [
+            'question_id' => $this->question->id,
+            'answer' => 'B',
+            'reason' => 'Demorei mais para reler o texto.',
+            'markers' => [
+                ['id' => 'm1', 'kind' => 'command', 'target' => 'prompt', 'start' => 0, 'end' => 10],
+                ['id' => 'm2', 'kind' => 'evidence', 'target' => 'source', 'start' => 0, 'end' => 6],
+            ],
+            'time_spent' => 245000,
+        ])
+        ->assertOk();
+
+    $this->assertDatabaseHas('student_answers', [
+        'student_attempt_id' => $attempt->id,
+        'question_id' => $this->question->id,
+        'time_spent_seconds' => 245,
+    ]);
+
+    $this->actingAs($this->professor)
+        ->get(route('professor.salas.tentativa', [$this->classroom, $attempt]))
+        ->assertOk()
+        ->assertSee('Tempo Total nas Questões')
+        ->assertSee('04:05')
+        ->assertSee('Tempo: 04:05 / Limite: 03:00')
+        ->assertSee('(+01:05)');
+});

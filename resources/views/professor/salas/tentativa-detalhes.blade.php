@@ -27,9 +27,14 @@
             </div>
         </div>
 
+        @php
+            $formatDuration = fn (int $sec): string => sprintf('%02d:%02d', intdiv(max(0, $sec), 60), max(0, $sec) % 60);
+            $totalTimeSpent = (int) $answers->sum('time_spent_seconds');
+        @endphp
+
         {{-- Status da tentativa --}}
         <div class="bg-white rounded-2xl p-5 border border-royal-purple-200/60 shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4">
                 <div>
                     <span class="text-cloud-burst-600 block text-[11px]">Início</span>
                     <span class="font-bold text-cloud-burst-950 font-heading">{{ $attempt->started_at->format('d/m/Y H:i:s') }}</span>
@@ -46,6 +51,10 @@
                         <span class="font-bold text-cloud-burst-950 font-heading">{{ $attempt->reviewed_at->format('d/m/Y H:i:s') }}</span>
                     </div>
                 @endif
+                <div>
+                    <span class="text-cloud-burst-600 block text-[11px]">Tempo Total nas Questões</span>
+                    <span class="font-bold font-mono text-royal-purple-900">{{ $formatDuration($totalTimeSpent) }}</span>
+                </div>
             </div>
 
             <div>
@@ -75,6 +84,12 @@
                     $changedAnswer = ($reviewedLetter && $reviewedLetter !== $initialLetter);
                     $isCorrectInitial = (bool) $ans?->is_correct_initial;
                     $isCorrectFinal = (bool) $ans?->is_correct_final;
+
+                    $timeLimitSec = (int) ($q->time_limit_seconds ?? 180);
+                    $timeSpentSec = $ans ? (int) $ans->time_spent_seconds : null;
+                    $overtimeSec = ($timeSpentSec !== null && $timeSpentSec > $timeLimitSec)
+                        ? ($timeSpentSec - $timeLimitSec)
+                        : 0;
                 @endphp
 
                 <article class="bg-white rounded-3xl p-6 md:p-8 border border-royal-purple-200/60 shadow-xs space-y-6">
@@ -91,7 +106,16 @@
                             @endif
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            @if($timeSpentSec !== null)
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono border {{ $overtimeSec > 0 ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-gray-50 text-cloud-burst-800 border-gray-200' }}">
+                                    <x-lucide-clock class="w-3.5 h-3.5 {{ $overtimeSec > 0 ? 'text-rose-600' : 'text-royal-purple-800' }}" />
+                                    <span>Tempo: {{ $formatDuration($timeSpentSec) }} / Limite: {{ $formatDuration($timeLimitSec) }}</span>
+                                    @if($overtimeSec > 0)
+                                        <span class="text-rose-700 font-extrabold">(+{{ $formatDuration($overtimeSec) }})</span>
+                                    @endif
+                                </span>
+                            @endif
                             @if($changedAnswer)
                                 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold font-heading bg-sky-blue-100 text-sky-blue-950 border border-sky-blue-300">
                                     <x-lucide-refresh-cw class="w-3.5 h-3.5 text-sky-blue-800" />
