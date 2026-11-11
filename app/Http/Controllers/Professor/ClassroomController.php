@@ -6,6 +6,7 @@ use App\Events\ClassroomListUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\StudentAttempt;
+use App\Services\BroadcastService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -71,7 +72,7 @@ class ClassroomController extends Controller
             'is_active' => true,
         ]);
 
-        broadcast(new ClassroomListUpdated($classroom, 'created'));
+        BroadcastService::dispatch(new ClassroomListUpdated($classroom, 'created'));
 
         return redirect()->route('professor.salas.show', $classroom)
             ->with('success', "Sala de Aula criada com sucesso! Código de acesso: {$classroom->code}");
@@ -108,7 +109,7 @@ class ClassroomController extends Controller
         $this->authorizeClassroom($sala);
         $sala->update(['is_active' => ! $sala->is_active]);
 
-        broadcast(new ClassroomListUpdated($sala, 'updated'));
+        BroadcastService::dispatch(new ClassroomListUpdated($sala, 'updated'));
 
         $statusMsg = $sala->is_active ? 'aberta para novos alunos.' : 'fechada para respostas.';
 
@@ -148,7 +149,7 @@ class ClassroomController extends Controller
     public function destroy(Classroom $sala): RedirectResponse
     {
         $this->authorizeClassroom($sala);
-        broadcast(new ClassroomListUpdated($sala, 'deleted'));
+        BroadcastService::dispatch(new ClassroomListUpdated($sala, 'deleted'));
         $sala->delete();
 
         return redirect()->route('professor.salas.index')

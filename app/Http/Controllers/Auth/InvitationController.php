@@ -6,6 +6,7 @@ use App\Events\ProfessorListUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Rules\CpfRule;
+use App\Services\BroadcastService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -95,12 +96,12 @@ class InvitationController extends Controller
             'email_verified_at' => now(),
         ]);
 
-        broadcast(new ProfessorListUpdated($user, 'updated'));
+        BroadcastService::dispatch(new ProfessorListUpdated($user, 'updated'));
 
         Auth::login($user);
         $request->session()->regenerate();
 
         return redirect()->route('security.passkey.suggestion')
-            ->with('success', 'Cadastro finalizado com sucesso! Bem-vindo ao Corujinha AVALIA+.');
+            ->with('success', 'Cadastro finalizado com sucesso! Bem-vindo ao Corujinha.');
     }
 }

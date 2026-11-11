@@ -1,4 +1,4 @@
-<x-layouts.app :title="$classroom->name . ' · Corujinha AVALIA+'">
+<x-layouts.app :title="$classroom->name . ' · Corujinha'">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {{-- Header --}}
@@ -7,7 +7,7 @@
             <picture>
                 <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
                 <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                <img src="{{ asset('images/logo/Corujinha_AVALIA_Mais_300_DPI.png') }}" alt="Corujinha AVALIA+" class="h-10 w-auto object-contain">
+                <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-10 w-auto object-contain">
             </picture>
             <div class="border-l border-magnolia-300 pl-4">
                 <h1 class="text-base font-bold font-heading text-cloud-burst-950 m-0 leading-tight">
@@ -62,7 +62,7 @@
                             TEXTO DE APOIO
                         </p>
                         <h3 id="source-title" class="text-xl font-bold font-heading text-cloud-burst-950 leading-snug mb-4 select-text"></h3>
-                        <p id="source-text" class="text-base md:text-lg leading-relaxed text-cloud-burst-950 whitespace-pre-line m-0 select-text"></p>
+                        <div id="source-text" class="rich-text-content text-base md:text-lg leading-relaxed text-cloud-burst-950 mb-4 select-text"></div>
                         <img id="source-img" hidden alt="Imagem de apoio da questão" class="w-full max-h-[510px] object-contain rounded-2xl select-none border border-magnolia-200 shadow-xs">
                     </article>
 

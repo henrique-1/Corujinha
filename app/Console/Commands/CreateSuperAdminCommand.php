@@ -34,7 +34,7 @@ class CreateSuperAdminCommand extends Command
      */
     public function handle(): int
     {
-        $this->info('=== Criação de Super-Usuário (Corujinha AVALIA+) ===');
+        $this->info('=== Criação de Super-Usuário (Corujinha) ===');
 
         $name = $this->option('name') ?: $this->ask('Nome completo');
         $email = $this->option('email') ?: $this->ask('E-mail institucional');

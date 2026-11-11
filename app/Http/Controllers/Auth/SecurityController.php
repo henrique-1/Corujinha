@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\WebauthnCredential;
+use App\Services\PasskeyService;
 use App\Services\TotpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use RuntimeException;
 
 class SecurityController extends Controller
 {
@@ -90,65 +92,38 @@ class SecurityController extends Controller
     /**
      * Opções de desafio WebAuthn para registrar uma nova Passkey.
      */
-    public function passkeyRegisterOptions(): JsonResponse
+    public function passkeyRegisterOptions(Request $request, PasskeyService $passkeyService): JsonResponse
     {
-        $user = Auth::user();
-        $challenge = bin2hex(random_bytes(32));
-        session(['webauthn_register_challenge' => $challenge]);
-
-        $existing = $user->webauthnCredentials->pluck('credential_id')->map(function ($id) {
-            return [
-                'type' => 'public-key',
-                'id' => $id,
-            ];
-        })->values()->all();
-
-        return response()->json([
-            'challenge' => $challenge,
-            'rp' => [
-                'name' => config('app.name', 'Corujinha AVALIA+'),
-                'id' => request()->getHost(),
-            ],
-            'user' => [
-                'id' => (string) $user->id,
-                'name' => $user->email,
-                'displayName' => $user->name,
-            ],
-            'pubKeyCredParams' => [
-                ['type' => 'public-key', 'alg' => -7],  // ES256
-                ['type' => 'public-key', 'alg' => -257], // RS256
-            ],
-            'timeout' => 60000,
-            'attestation' => 'none',
-            'excludeCredentials' => $existing,
-            'authenticatorSelection' => [
-                'userVerification' => 'preferred',
-                'residentKey' => 'preferred',
-            ],
-        ]);
+        return response()->json(
+            $passkeyService->generateRegistrationOptions(Auth::user(), $request)
+        );
     }
 
     /**
-     * Salva uma Passkey registrada.
+     * Salva uma Passkey registrada com validação criptográfica do desafio e chave SPKI.
      */
-    public function passkeyRegisterStore(Request $request): JsonResponse
+    public function passkeyRegisterStore(Request $request, PasskeyService $passkeyService): JsonResponse
     {
         $validated = $request->validate([
             'id' => ['required', 'string'],
-            'rawId' => ['required', 'string'],
+            'clientDataJSON' => ['required', 'string'],
+            'publicKeySpki' => ['required', 'string'],
+            'publicKeyAlg' => ['nullable', 'integer'],
             'name' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $user = Auth::user();
+        try {
+            $credential = $passkeyService->verifyAndStoreRegistration(Auth::user(), $validated, $request);
 
-        WebauthnCredential::create([
-            'user_id' => $user->id,
-            'credential_id' => $validated['id'],
-            'public_key' => $validated['rawId'],
-            'name' => $validated['name'] ?: 'Minha Passkey',
-        ]);
-
-        return response()->json(['success' => true]);
+            return response()->json([
+                'success' => true,
+                'id' => $credential->id,
+            ]);
+        } catch (RuntimeException|\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        }
     }
 
     /**

@@ -46,8 +46,8 @@ class TotpService
      */
     public function getOtpAuthUrl(string $name, string $email, string $secret): string
     {
-        $issuer = rawurlencode('Corujinha AVALIA+');
-        $label = rawurlencode('Corujinha AVALIA+').":{$email}";
+        $issuer = rawurlencode('Corujinha');
+        $label = rawurlencode('Corujinha').":{$email}";
 
         return "otpauth://totp/{$label}?secret={$secret}&issuer={$issuer}&algorithm=SHA1&digits=6&period=30";
     }

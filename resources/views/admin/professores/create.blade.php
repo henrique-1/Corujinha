@@ -1,4 +1,4 @@
-<x-layouts.admin title="Cadastrar Professor · Corujinha AVALIA+">
+<x-layouts.admin title="Cadastrar Professor · Corujinha">
     <div class="max-w-2xl mx-auto space-y-6">
         <div>
             <a href="{{ route('admin.professores.index') }}" class="text-xs font-bold font-heading text-royal-purple-800 hover:underline mb-2 inline-flex items-center gap-1">

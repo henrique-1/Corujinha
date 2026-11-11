@@ -1,11 +1,11 @@
-<x-layouts.app :title="'Revisão e Correção Coletiva · ' . $classroom->name . ' · Corujinha AVALIA+'">
+<x-layouts.app :title="'Revisão e Correção Coletiva · ' . $classroom->name . ' · Corujinha'">
     <header class="bg-gradient-to-r from-emerald-800 to-teal-900 text-white px-4 md:px-8 py-5 shadow-sm">
         <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex items-center gap-4">
                 <picture>
                     <source srcset="{{ asset('images/logo/logo-icon.avif') }}" type="image/avif">
                     <source srcset="{{ asset('images/logo/logo-icon.webp') }}" type="image/webp">
-                    <img src="{{ asset('images/logo/Corujinha_AVALIA_Mais_ICO.png') }}" alt="Corujinha" class="h-12 w-auto object-contain">
+                    <img src="{{ asset('images/logo/logo-icon.webp') }}" alt="Corujinha" class="h-12 w-auto object-contain">
                 </picture>
                 <div>
                     <span class="inline-block px-3 py-1 rounded-full text-xs font-bold font-heading bg-white/20 text-white mb-1">
@@ -56,17 +56,20 @@
                         </span>
                     </div>
 
-                    {{-- Suporte: Texto ou Imagem --}}
-                    @if($q->isImageSupport())
+                    {{-- Suporte: Texto e/ou Imagem --}}
+                    @if($q->hasTextSupport())
+                        <div class="bg-magnolia-50/70 p-4 rounded-2xl border border-magnolia-200 text-sm text-cloud-burst-950 leading-relaxed space-y-2">
+                            @if($q->support_title)
+                                <p class="font-bold font-heading text-cloud-burst-950 m-0">{{ $q->support_title }}</p>
+                            @endif
+                            @if($q->support_text)
+                                <div class="rich-text-content m-0">{!! \App\Services\RichTextSanitizer::toHtml($q->support_text) !!}</div>
+                            @endif
+                        </div>
+                    @endif
+                    @if($q->hasImageSupport())
                         <div class="text-center my-3">
                             <img src="{{ $q->image_url }}" alt="Imagem de apoio" class="max-h-72 mx-auto rounded-2xl border border-magnolia-200 shadow-xs">
-                        </div>
-                    @elseif($q->support_text)
-                        <div class="bg-magnolia-50/70 p-4 rounded-2xl border border-magnolia-200 text-sm text-cloud-burst-950 leading-relaxed">
-                            @if($q->support_title)
-                                <p class="font-bold font-heading text-cloud-burst-950 mb-2">{{ $q->support_title }}</p>
-                            @endif
-                            <p class="whitespace-pre-line m-0">{{ $q->support_text }}</p>
                         </div>
                     @endif
 

@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? 'Corujinha AVALIA+' }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ $title ?? 'Corujinha' }}</title>
 
     <link rel="icon" type="image/x-icon" href="{{ asset('images/icon/Corujinha.ico') }}">
     <link rel="shortcut icon" href="{{ asset('images/icon/Corujinha.ico') }}">

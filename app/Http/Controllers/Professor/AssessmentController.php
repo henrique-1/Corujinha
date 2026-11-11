@@ -31,12 +31,14 @@ class AssessmentController extends Controller
     public function create(): View
     {
         $questions = Auth::user()->questions()->latest()->get();
+        $areas = Auth::user()->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
+        $gradeLevels = Auth::user()->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
 
-        return view('professor.avaliacoes.create', compact('questions'));
+        return view('professor.avaliacoes.create', compact('questions', 'areas', 'gradeLevels'));
     }
 
     /**
-     * Salva a avaliação e associa as perguntas selecionadas com ordem.
+     * Salva a avaliação e associa as perguntas selecionadas com ordem e pontuação.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -48,11 +50,17 @@ class AssessmentController extends Controller
                 'required',
                 Rule::exists('questions', 'id')->where('user_id', Auth::id()),
             ],
+            'points' => ['nullable', 'array'],
+            'points.*' => ['nullable', 'numeric', 'min:0.01', 'max:99.99', 'decimal:0,2'],
         ], [
             'title.required' => 'Informe o título da avaliação.',
             'question_ids.required' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.min' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.*.exists' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
+            'points.*.numeric' => 'A pontuação de cada questão deve ser um valor numérico válido.',
+            'points.*.min' => 'A pontuação mínima de cada questão é 0,01.',
+            'points.*.max' => 'A pontuação máxima de cada questão é 99,99.',
+            'points.*.decimal' => 'A pontuação deve ter no máximo 2 casas decimais.',
         ]);
 
         $assessment = Assessment::create([
@@ -61,9 +69,14 @@ class AssessmentController extends Controller
             'description' => $validated['description'] ?? null,
         ]);
 
+        $pointsInput = $request->input('points', []);
         $syncData = [];
         foreach ($validated['question_ids'] as $index => $qId) {
-            $syncData[$qId] = ['order' => $index + 1];
+            $pt = isset($pointsInput[$qId]) && is_numeric($pointsInput[$qId]) ? round((float) $pointsInput[$qId], 2) : 1.0;
+            $syncData[$qId] = [
+                'order' => $index + 1,
+                'points' => $pt > 0 ? $pt : 1.0,
+            ];
         }
 
         $assessment->questions()->sync($syncData);
@@ -80,11 +93,17 @@ class AssessmentController extends Controller
         $this->authorizeAssessment($avaliacao);
         $questions = Auth::user()->questions()->latest()->get();
         $selectedQuestionIds = $avaliacao->questions->pluck('id')->all();
+        $existingPoints = $avaliacao->questions->pluck('pivot.points', 'id')->all();
+        $areas = Auth::user()->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
+        $gradeLevels = Auth::user()->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
 
         return view('professor.avaliacoes.edit', [
             'assessment' => $avaliacao,
             'questions' => $questions,
             'selectedQuestionIds' => $selectedQuestionIds,
+            'existingPoints' => $existingPoints,
+            'areas' => $areas,
+            'gradeLevels' => $gradeLevels,
         ]);
     }
 
@@ -103,11 +122,17 @@ class AssessmentController extends Controller
                 'required',
                 Rule::exists('questions', 'id')->where('user_id', Auth::id()),
             ],
+            'points' => ['nullable', 'array'],
+            'points.*' => ['nullable', 'numeric', 'min:0.01', 'max:99.99', 'decimal:0,2'],
         ], [
             'title.required' => 'Informe o título da avaliação.',
             'question_ids.required' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.min' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.*.exists' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
+            'points.*.numeric' => 'A pontuação de cada questão deve ser um valor numérico válido.',
+            'points.*.min' => 'A pontuação mínima de cada questão é 0,01.',
+            'points.*.max' => 'A pontuação máxima de cada questão é 99,99.',
+            'points.*.decimal' => 'A pontuação deve ter no máximo 2 casas decimais.',
         ]);
 
         $avaliacao->update([
@@ -115,9 +140,14 @@ class AssessmentController extends Controller
             'description' => $validated['description'] ?? null,
         ]);
 
+        $pointsInput = $request->input('points', []);
         $syncData = [];
         foreach ($validated['question_ids'] as $index => $qId) {
-            $syncData[$qId] = ['order' => $index + 1];
+            $pt = isset($pointsInput[$qId]) && is_numeric($pointsInput[$qId]) ? round((float) $pointsInput[$qId], 2) : 1.0;
+            $syncData[$qId] = [
+                'order' => $index + 1,
+                'points' => $pt > 0 ? $pt : 1.0,
+            ];
         }
 
         $avaliacao->questions()->sync($syncData);

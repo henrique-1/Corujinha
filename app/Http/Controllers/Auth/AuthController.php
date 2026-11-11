@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PasskeyService;
 use App\Services\TotpService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
+use RuntimeException;
 
 class AuthController extends Controller
 {
@@ -114,6 +117,64 @@ class AuthController extends Controller
     }
 
     /**
+     * Gera as opções WebAuthn para autenticação com Passkey.
+     */
+    public function passkeyLoginOptions(Request $request, PasskeyService $passkeyService): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['nullable', 'string', 'email'],
+        ]);
+
+        return response()->json(
+            $passkeyService->generateAuthenticationOptions($validated['email'] ?? null, $request)
+        );
+    }
+
+    /**
+     * Valida a asserção WebAuthn e autentica diretamente o usuário sem exigir TOTP.
+     */
+    public function passkeyLoginVerify(Request $request, PasskeyService $passkeyService): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => ['required', 'string'],
+            'clientDataJSON' => ['required', 'string'],
+            'authenticatorData' => ['required', 'string'],
+            'signature' => ['required', 'string'],
+            'remember' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $credential = $passkeyService->verifyAssertion($validated, $request);
+            $user = $credential->user;
+
+            Auth::login($user, $request->boolean('remember'));
+            $request->session()->regenerate();
+
+            return response()->json([
+                'success' => true,
+                'redirect_url' => $this->dashboardUrlForUser($user),
+            ]);
+        } catch (RuntimeException|\InvalidArgumentException $e) {
+            if ($e->getMessage() === 'CREDENTIAL_NOT_FOUND') {
+                return response()->json([
+                    'error' => 'Passkey não reconhecida neste sistema. Faça login com e-mail e senha ou cadastre-a novamente.',
+                    'code' => 'CREDENTIAL_NOT_FOUND',
+                ], 404);
+            }
+
+            if ($e->getMessage() === 'LEGACY_PASSKEY') {
+                return response()->json([
+                    'error' => 'Esta Passkey foi registrada em uma versão anterior sem chave pública válida. Entre com e-mail e senha e cadastre-a novamente na Central de Segurança.',
+                ], 422);
+            }
+
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
      * Realiza o logout.
      */
     public function logout(Request $request): RedirectResponse
@@ -130,10 +191,18 @@ class AuthController extends Controller
      */
     private function redirectBasedOnRole(User $user): RedirectResponse
     {
+        return redirect()->to($this->dashboardUrlForUser($user));
+    }
+
+    /**
+     * Retorna a URL do painel inicial conforme o papel do usuário.
+     */
+    private function dashboardUrlForUser(User $user): string
+    {
         if ($user->isSuperAdmin()) {
-            return redirect()->route('admin.professores.index');
+            return route('admin.professores.index');
         }
 
-        return redirect()->route('professor.salas.index');
+        return route('professor.salas.index');
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\Question;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
@@ -100,4 +101,38 @@ test('dispara evento StudentAttemptUpdated ao salvar resposta do estudante', fun
             && count($channels) === 1
             && $channels[0]->name === 'classroom.'.$classroom->id;
     });
+});
+
+test('cadastro de sala nao falha com erro 500 quando servidor reverb esta inacessivel', function () {
+    config([
+        'broadcasting.default' => 'reverb',
+        'broadcasting.connections.reverb.options' => [
+            'host' => '127.0.0.1',
+            'port' => 59999,
+            'scheme' => 'http',
+            'useTLS' => false,
+        ],
+    ]);
+    Broadcast::purge('reverb');
+
+    $professor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+    $assessment = Assessment::create([
+        'user_id' => $professor->id,
+        'title' => 'Avaliação Teste',
+    ]);
+
+    $response = $this->actingAs($professor)->post(route('professor.salas.store'), [
+        'name' => '8º ano A',
+        'assessment_id' => $assessment->id,
+        'code' => 'AVAL-ORTA',
+        'collective_review_enabled' => '1',
+    ]);
+
+    $classroom = Classroom::where('code', 'AVAL-ORTA')->first();
+    expect($classroom)->not->toBeNull();
+    $response->assertRedirect(route('professor.salas.show', $classroom));
+
+    $deleteResponse = $this->actingAs($professor)->delete(route('professor.salas.destroy', $classroom));
+    $deleteResponse->assertRedirect(route('professor.salas.index'));
+    expect(Classroom::find($classroom->id))->toBeNull();
 });

@@ -1,11 +1,11 @@
-<x-layouts.app title="Entrar na Sala de Aula · Corujinha AVALIA+">
+<x-layouts.app title="Entrar na Sala de Aula · Corujinha">
     <div class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200">
             <div class="text-center flex flex-col items-center">
                 <picture class="mb-4 block">
                     <source srcset="{{ asset('images/logo/logo-horizontal.avif') }}" type="image/avif">
                     <source srcset="{{ asset('images/logo/logo-horizontal.webp') }}" type="image/webp">
-                    <img src="{{ asset('images/logo/Corujinha_AVALIA_Mais_300_DPI.png') }}" alt="Corujinha AVALIA+" class="h-16 w-auto object-contain mx-auto">
+                    <img src="{{ asset('images/logo/logo-horizontal.webp') }}" alt="Corujinha" class="h-16 w-auto object-contain mx-auto">
                 </picture>
 
                 <h1 class="text-xl font-bold font-heading text-cloud-burst-950 tracking-tight">

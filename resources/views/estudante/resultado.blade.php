@@ -1,11 +1,11 @@
-<x-layouts.app :title="'Resultado e Devolutivas · ' . $classroom->name . ' · Corujinha AVALIA+'">
+<x-layouts.app :title="'Resultado e Devolutivas · ' . $classroom->name . ' · Corujinha'">
     <header class="bg-royal-purple-950 text-white px-4 md:px-8 py-6 shadow-md">
         <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex items-center gap-4">
                 <picture>
                     <source srcset="{{ asset('images/logo/logo-icon.avif') }}" type="image/avif">
                     <source srcset="{{ asset('images/logo/logo-icon.webp') }}" type="image/webp">
-                    <img src="{{ asset('images/logo/Corujinha_AVALIA_Mais_ICO.png') }}" alt="Corujinha" class="h-12 w-auto object-contain">
+                    <img src="{{ asset('images/logo/logo-icon.webp') }}" alt="Corujinha" class="h-12 w-auto object-contain">
                 </picture>
                 <div>
                     <span class="inline-block px-3 py-1 rounded-full text-xs font-bold font-heading bg-shocking-pink-500/20 text-shocking-pink-200 border border-shocking-pink-400/30 mb-1">
@@ -19,10 +19,14 @@
                     </p>
                 </div>
             </div>
-            <div class="flex items-center gap-3 bg-white/10 px-5 py-3 rounded-2xl border border-white/15">
-                <div class="text-center">
+            <div class="flex items-center gap-3">
+                <div class="text-center bg-white/10 px-5 py-3 rounded-2xl border border-white/15">
                     <span class="text-xs text-royal-purple-200 uppercase tracking-wider block font-bold font-heading">Total de Acertos</span>
-                    <span class="text-3xl font-extrabold font-heading text-broom-400">{{ $score }} / {{ $totalQuestions }}</span>
+                    <span class="text-2xl font-extrabold font-heading text-broom-400">{{ $score }} / {{ $totalQuestions }}</span>
+                </div>
+                <div class="text-center bg-broom-400 text-broom-950 px-5 py-3 rounded-2xl border border-broom-300 shadow-sm">
+                    <span class="text-[11px] uppercase tracking-wider block font-bold font-heading">Pontuação Final</span>
+                    <span class="text-2xl font-extrabold font-heading">{{ number_format($earnedPoints, 1, ',', '.') }} / {{ number_format($totalPossiblePoints, 1, ',', '.') }}</span>
                 </div>
             </div>
         </div>
@@ -87,19 +91,24 @@
                         </div>
                     </div>
 
-                    {{-- Suporte: Imagem ou Texto com Destaques do Marca-Texto --}}
-                    @if($q->isImageSupport())
-                        <div class="text-center my-3">
-                            <img src="{{ $q->image_url }}" alt="Imagem de apoio" class="max-h-72 mx-auto rounded-2xl border border-magnolia-200">
-                        </div>
-                    @elseif($q->support_text)
+                    {{-- Suporte: Texto com Destaques e/ou Imagem --}}
+                    @if($q->hasTextSupport())
                         <div class="bg-magnolia-50/70 p-5 rounded-2xl border border-magnolia-200 space-y-3">
                             @if($q->support_title)
-                                <p class="font-bold font-heading text-cloud-burst-950 text-base mb-1">{{ $q->support_title }}</p>
+                                <p class="font-bold font-heading text-cloud-burst-950 text-base mb-1">
+                                    {!! \App\Services\TextHighlightService::applyHighlights($q->support_title, $markers, 'title') !!}
+                                </p>
                             @endif
-                            <div class="text-sm text-cloud-burst-950 leading-relaxed">
-                                {!! \App\Services\TextHighlightService::applyHighlights($q->support_text, $markers, 'support') !!}
-                            </div>
+                            @if($q->support_text)
+                                <div class="rich-text-content text-sm text-cloud-burst-950 leading-relaxed">
+                                    {!! \App\Services\TextHighlightService::applyHighlights($q->support_text, $markers, 'support') !!}
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+                    @if($q->hasImageSupport())
+                        <div class="text-center my-3">
+                            <img src="{{ $q->image_url }}" alt="Imagem de apoio" class="max-h-72 mx-auto rounded-2xl border border-magnolia-200">
                         </div>
                     @endif
 
