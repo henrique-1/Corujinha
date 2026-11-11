@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\ProfessorListUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\ProfessorInviteNotification;
@@ -60,6 +61,8 @@ class ProfessorController extends Controller
 
         $professor->notify(new ProfessorInviteNotification($token));
 
+        broadcast(new ProfessorListUpdated($professor, 'created'));
+
         return redirect()->route('admin.professores.index')
             ->with('success', "Convite enviado com sucesso para {$professor->name} ({$professor->email})!");
     }
@@ -81,6 +84,8 @@ class ProfessorController extends Controller
 
         $professor->notify(new ProfessorInviteNotification($token));
 
+        broadcast(new ProfessorListUpdated($professor, 'updated'));
+
         return back()->with('success', "Novo convite enviado para {$professor->email}!");
     }
 
@@ -97,6 +102,8 @@ class ProfessorController extends Controller
             'totp_secret' => null,
             'totp_enabled_at' => null,
         ]);
+
+        broadcast(new ProfessorListUpdated($professor, 'updated'));
 
         return back()->with('success', "O autenticador (TOTP) de {$professor->name} foi desabilitado com sucesso. Ele agora pode entrar apenas com a senha.");
     }
@@ -115,6 +122,7 @@ class ProfessorController extends Controller
         }
 
         $email = $professor->email;
+        broadcast(new ProfessorListUpdated($professor, 'deleted'));
         $professor->delete();
 
         return back()->with('success', "Convite para {$email} foi cancelado e removido com sucesso.");

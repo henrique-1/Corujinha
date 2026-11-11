@@ -25,22 +25,22 @@
                             <th class="py-3.5 px-6">CPF</th>
                             <th class="py-3.5 px-6">Status da Conta</th>
                             <th class="py-3.5 px-6">MFA (TOTP)</th>
-                            <th class="py-3.5 px-6 text-right">Ações</th>
+                            <th class="py-3.5 px-6 text-center whitespace-nowrap min-w-[240px]">Ações</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-magnolia-100">
+                    <tbody id="professores-table-body" class="divide-y divide-magnolia-100">
                         @forelse($professores as $prof)
-                            <tr class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="professor-row-{{ $prof->id }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-bold font-heading text-cloud-burst-950">
                                     {{ $prof->name }}
                                 </td>
                                 <td class="py-4 px-6 text-cloud-burst-800">
                                     {{ $prof->email }}
                                 </td>
-                                <td class="py-4 px-6 text-cloud-burst-800 font-mono text-xs">
+                                <td class="py-4 px-6 text-cloud-burst-800 font-mono text-xs" id="prof-cpf-{{ $prof->id }}">
                                     {{ $prof->cpf ? \App\Rules\CpfRule::format($prof->cpf) : 'Pendente de preenchimento' }}
                                 </td>
-                                <td class="py-4 px-6">
+                                <td class="py-4 px-6" id="prof-status-{{ $prof->id }}">
                                     @if($prof->isActive())
                                         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-emerald-100 text-emerald-800 border border-emerald-200">
                                             <x-lucide-check-circle class="w-3.5 h-3.5 text-emerald-600" />
@@ -53,7 +53,7 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="py-4 px-6">
+                                <td class="py-4 px-6" id="prof-totp-{{ $prof->id }}">
                                     @if($prof->isTotpEnabled())
                                         <span class="inline-flex items-center gap-1 text-xs font-bold font-heading text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                                             <x-lucide-smartphone class="w-3.5 h-3.5 text-emerald-600" />
@@ -63,36 +63,45 @@
                                         <span class="text-xs text-gray-400">Inativo</span>
                                     @endif
                                 </td>
-                                <td class="py-4 px-6 text-right space-x-2">
-                                    @if(! $prof->isActive())
-                                        <form action="{{ route('admin.professores.resend_invite', $prof) }}" method="POST" class="inline">
-                                            @csrf
-                                            <button type="submit" class="cursor-pointer text-xs font-bold font-heading text-royal-purple-800 hover:underline bg-royal-purple-50 hover:bg-royal-purple-100 px-3 py-1.5 rounded-lg border border-royal-purple-200 transition">
-                                                Reenviar Convite
-                                            </button>
-                                        </form>
+                                <td class="py-4 px-6 text-center">
+                                    <div class="inline-flex items-center justify-center gap-2.5">
+                                        @if(! $prof->isActive())
+                                            <form action="{{ route('admin.professores.resend_invite', $prof) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold font-heading text-royal-purple-800 bg-royal-purple-50 hover:bg-royal-purple-100 hover:text-royal-purple-900 px-3 py-1.5 rounded-lg border border-royal-purple-200 transition shadow-2xs whitespace-nowrap">
+                                                    <x-lucide-send class="w-3.5 h-3.5 text-royal-purple-700" />
+                                                    <span>Reenviar Convite</span>
+                                                </button>
+                                            </form>
 
-                                        <form action="{{ route('admin.professores.destroy_invite', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja cancelar e remover o convite para este professor?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="cursor-pointer text-xs font-bold font-heading text-rose-700 hover:underline bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition">
-                                                Remover Convite
-                                            </button>
-                                        </form>
-                                    @endif
+                                            <form action="{{ route('admin.professores.destroy_invite', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja cancelar e remover o convite para este professor?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold font-heading text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-900 px-3 py-1.5 rounded-lg border border-rose-200 transition shadow-2xs whitespace-nowrap">
+                                                    <x-lucide-trash-2 class="w-3.5 h-3.5 text-rose-600" />
+                                                    <span>Remover Convite</span>
+                                                </button>
+                                            </form>
+                                        @endif
 
-                                    @if($prof->isTotpEnabled())
-                                        <form action="{{ route('admin.professores.disable_totp', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Desabilitar o autenticador (TOTP) deste professor? O professor voltará a acessar apenas com senha.');">
-                                            @csrf
-                                            <button type="submit" class="cursor-pointer text-xs font-bold font-heading text-rose-700 hover:underline bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition" title="Usar caso o professor tenha perdido o celular">
-                                                Resetar TOTP
-                                            </button>
-                                        </form>
-                                    @endif
+                                        @if($prof->isTotpEnabled())
+                                            <form action="{{ route('admin.professores.disable_totp', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Desabilitar o autenticador (TOTP) deste professor? O professor voltará a acessar apenas com senha.');">
+                                                @csrf
+                                                <button type="submit" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold font-heading text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-900 px-3 py-1.5 rounded-lg border border-rose-200 transition shadow-2xs whitespace-nowrap" title="Usar caso o professor tenha perdido o celular">
+                                                    <x-lucide-key-round class="w-3.5 h-3.5 text-rose-600" />
+                                                    <span>Resetar TOTP</span>
+                                                </button>
+                                            </form>
+                                        @endif
+
+                                        @if($prof->isActive() && ! $prof->isTotpEnabled())
+                                            <span class="text-xs text-cloud-burst-400 font-medium">—</span>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty
-                            <tr>
+                            <tr id="empty-professores-row">
                                 <td colspan="6" class="py-8 text-center text-cloud-burst-600">
                                     Nenhum professor cadastrado ainda. Clique em "Cadastrar Novo Professor" para enviar o primeiro convite.
                                 </td>

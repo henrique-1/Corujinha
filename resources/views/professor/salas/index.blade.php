@@ -28,9 +28,9 @@
                             <th class="py-3.5 px-6 text-right">Ações</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-magnolia-100">
+                    <tbody id="classrooms-table-body" class="divide-y divide-magnolia-100">
                         @forelse($classrooms as $sala)
-                            <tr class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="classroom-row-{{ $sala->id }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-mono font-extrabold text-base text-royal-purple-800">
                                     <span class="px-2.5 py-1 rounded-lg bg-royal-purple-100 border border-royal-purple-200">
                                         {{ $sala->code }}
@@ -57,7 +57,7 @@
                                 <td class="py-4 px-6">
                                     <span class="text-xs font-bold font-heading text-cloud-burst-800 flex items-center gap-1">
                                         <x-lucide-users class="w-3.5 h-3.5 text-royal-purple-800" />
-                                        <span>{{ $sala->student_attempts_count }} aluno(s)</span>
+                                        <span id="classroom-students-count-{{ $sala->id }}">{{ $sala->student_attempts_count }} aluno(s)</span>
                                     </span>
                                 </td>
                                 <td class="py-4 px-6 text-right space-x-2">
@@ -76,7 +76,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr>
+                            <tr id="empty-classrooms-row">
                                 <td colspan="6" class="py-8 text-center text-cloud-burst-600">
                                     Nenhuma sala criada ainda. Clique em "Nova Sala de Aula" para gerar o código da sua primeira turma.
                                 </td>
@@ -93,4 +93,12 @@
             @endif
         </div>
     </div>
+
+    @push('scripts')
+        <script>
+            window.__CLASSROOMS_LIST_CONFIG__ = {
+                userId: {{ auth()->id() }}
+            };
+        </script>
+    @endpush
 </x-layouts.admin>

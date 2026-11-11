@@ -7,6 +7,7 @@ use App\Models\Assessment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AssessmentController extends Controller
@@ -43,11 +44,15 @@ class AssessmentController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'question_ids' => ['required', 'array', 'min:1'],
-            'question_ids.*' => ['exists:questions,id'],
+            'question_ids.*' => [
+                'required',
+                Rule::exists('questions', 'id')->where('user_id', Auth::id()),
+            ],
         ], [
             'title.required' => 'Informe o título da avaliação.',
             'question_ids.required' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.min' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
+            'question_ids.*.exists' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
         ]);
 
         $assessment = Assessment::create([
@@ -94,7 +99,15 @@ class AssessmentController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'question_ids' => ['required', 'array', 'min:1'],
-            'question_ids.*' => ['exists:questions,id'],
+            'question_ids.*' => [
+                'required',
+                Rule::exists('questions', 'id')->where('user_id', Auth::id()),
+            ],
+        ], [
+            'title.required' => 'Informe o título da avaliação.',
+            'question_ids.required' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
+            'question_ids.min' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
+            'question_ids.*.exists' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
         ]);
 
         $avaliacao->update([

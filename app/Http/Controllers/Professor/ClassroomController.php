@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Professor;
 
+use App\Events\ClassroomListUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\StudentAttempt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ClassroomController extends Controller
@@ -44,12 +46,16 @@ class ClassroomController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'assessment_id' => ['required', 'exists:assessments,id'],
+            'assessment_id' => [
+                'required',
+                Rule::exists('assessments', 'id')->where('user_id', Auth::id()),
+            ],
             'code' => ['required', 'string', 'max:20', 'unique:classrooms,code'],
             'collective_review_enabled' => ['nullable', 'boolean'],
         ], [
             'name.required' => 'Informe o nome da turma ou sala.',
             'assessment_id.required' => 'Selecione uma avaliação para esta sala.',
+            'assessment_id.exists' => 'A avaliação selecionada é inválida ou não pertence à sua conta.',
             'code.required' => 'O código da sala é obrigatório.',
             'code.unique' => 'Este código já está em uso em outra sala.',
         ]);
@@ -64,6 +70,8 @@ class ClassroomController extends Controller
             'collective_review_enabled' => $request->boolean('collective_review_enabled', true),
             'is_active' => true,
         ]);
+
+        broadcast(new ClassroomListUpdated($classroom, 'created'));
 
         return redirect()->route('professor.salas.show', $classroom)
             ->with('success', "Sala de Aula criada com sucesso! Código de acesso: {$classroom->code}");
@@ -99,6 +107,8 @@ class ClassroomController extends Controller
     {
         $this->authorizeClassroom($sala);
         $sala->update(['is_active' => ! $sala->is_active]);
+
+        broadcast(new ClassroomListUpdated($sala, 'updated'));
 
         $statusMsg = $sala->is_active ? 'aberta para novos alunos.' : 'fechada para respostas.';
 
@@ -138,6 +148,7 @@ class ClassroomController extends Controller
     public function destroy(Classroom $sala): RedirectResponse
     {
         $this->authorizeClassroom($sala);
+        broadcast(new ClassroomListUpdated($sala, 'deleted'));
         $sala->delete();
 
         return redirect()->route('professor.salas.index')
