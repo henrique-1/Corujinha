@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Executar Deploy via SSH na VPS
-        uses: appleboy/ssh-action@e63b4fd3ac9ff8ca3efce8ef18bd7d57219853b1 # v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           LARAVEL_ENV_ENCRYPTION_KEY: ${{ secrets.LARAVEL_ENV_ENCRYPTION_KEY }}
         with:
