@@ -43,7 +43,11 @@
                             <p>Ao fazer login com sua senha, o sistema solicitará o código de 6 dígitos gerado pelo seu celular.</p>
                         </div>
 
-                        <form action="{{ route('security.totp.disable') }}" method="POST" onsubmit="return confirm('Deseja realmente desativar a autenticação em duas etapas?');">
+                        <form action="{{ route('security.totp.disable') }}" method="POST"
+                              data-confirm="Deseja realmente desativar a autenticação em duas etapas?"
+                              data-confirm-title="Desativar TOTP"
+                              data-confirm-ok="Desativar"
+                              data-confirm-tone="danger">
                             @csrf
                             <button type="submit" class="cursor-pointer px-4 py-2.5 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold font-heading transition">
                                 Desativar TOTP
@@ -113,7 +117,11 @@
                                     <p class="font-bold font-heading text-cloud-burst-950">{{ $cred->name ?? 'Passkey' }}</p>
                                     <p class="text-[11px] text-gray-400">Cadastrada em {{ $cred->created_at->format('d/m/Y H:i') }}</p>
                                 </div>
-                                <form action="{{ route('security.passkey.destroy', $cred) }}" method="POST" onsubmit="return confirm('Remover esta Passkey?');">
+                                <form action="{{ route('security.passkey.destroy', $cred) }}" method="POST"
+                                      data-confirm="Deseja remover esta Passkey?"
+                                      data-confirm-title="Remover Passkey"
+                                      data-confirm-ok="Remover"
+                                      data-confirm-tone="danger">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="cursor-pointer text-rose-600 hover:text-rose-800 font-bold px-2 py-1">

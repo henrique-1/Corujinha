@@ -5,6 +5,7 @@
  */
 
 import { getSelectionOffsets, normalizeTextToHtml, renderHtmlWithHighlights } from './html-highlight';
+import { openNoticeDialog } from './dialog-modal';
 
 export function initQuestionHighlighter() {
     const textSupportEl = document.getElementById('support_text');
@@ -244,7 +245,11 @@ export function initQuestionHighlighter() {
     function handleSelectionApply(kind) {
         const sel = window.getSelection();
         if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-            alert('Por favor, selecione primeiro com o cursor do mouse um trecho do texto na área interativa abaixo.');
+            openNoticeDialog({
+                title: 'Selecione um trecho',
+                message: 'Por favor, selecione primeiro com o cursor do mouse um trecho do texto na área interativa abaixo.',
+                tone: 'warning',
+            });
             return;
         }
 
@@ -270,7 +275,11 @@ export function initQuestionHighlighter() {
         }
 
         if (!target || !containerEl) {
-            alert('A seleção deve ser feita dentro da área de texto interativa (Título, Texto de Apoio ou Enunciado).');
+            openNoticeDialog({
+                title: 'Área inválida',
+                message: 'A seleção deve ser feita dentro da área de texto interativa (Título, Texto de Apoio ou Enunciado).',
+                tone: 'warning',
+            });
             return;
         }
 
@@ -281,7 +290,11 @@ export function initQuestionHighlighter() {
         if (target === 'support') {
             const offsets = getSelectionOffsets(containerEl, range);
             if (!offsets) {
-                alert('Não foi possível sincronizar o trecho selecionado com o texto de apoio.');
+                openNoticeDialog({
+                    title: 'Erro na seleção',
+                    message: 'Não foi possível sincronizar o trecho selecionado com o texto de apoio.',
+                    tone: 'warning',
+                });
                 return;
             }
             startPos = offsets.start;
@@ -290,7 +303,11 @@ export function initQuestionHighlighter() {
         } else {
             startPos = baseRawText.indexOf(selectedText);
             if (startPos === -1) {
-                alert('Não foi possível sincronizar o trecho selecionado com o texto original.');
+                openNoticeDialog({
+                    title: 'Erro na seleção',
+                    message: 'Não foi possível sincronizar o trecho selecionado com o texto original.',
+                    tone: 'warning',
+                });
                 return;
             }
             endPos = startPos + selectedText.length;
