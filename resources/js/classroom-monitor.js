@@ -36,7 +36,18 @@ export function initClassroomMonitor() {
 
                 const tr = document.createElement('tr');
                 tr.id = `attempt-row-${e.attempt.id}`;
+                tr.setAttribute('data-student-row', '');
+                tr.setAttribute('data-student-name', (e.attempt.student_name || '').toLowerCase());
                 tr.className = 'hover:bg-royal-purple-50/30 transition bg-emerald-50/40 animate-pulse';
+
+                const searchInput = document.getElementById('student-search-input');
+                if (searchInput && searchInput.value.trim()) {
+                    const normSearch = searchInput.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const normName = (e.attempt.student_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    if (!normName.includes(normSearch)) {
+                        tr.style.display = 'none';
+                    }
+                }
 
                 tr.innerHTML = `
                     <td class="py-4 px-6 font-bold text-cloud-burst-950">
