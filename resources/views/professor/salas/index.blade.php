@@ -37,7 +37,15 @@
                                     </span>
                                 </td>
                                 <td class="py-4 px-6 font-bold font-heading text-cloud-burst-950">
-                                    {{ $sala->name }}
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span>{{ $sala->name }}</span>
+                                        @if(! $sala->is_active)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-gray-100 text-gray-700 border border-gray-300">
+                                                <x-lucide-lock class="w-3 h-3" />
+                                                <span>Fechada</span>
+                                            </span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="py-4 px-6 text-cloud-burst-800">
                                     {{ $sala->assessment->title }}
@@ -46,7 +54,7 @@
                                     @if($sala->collective_review_enabled)
                                         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-emerald-100 text-emerald-800 border border-emerald-200">
                                             <x-lucide-check-circle class="w-3.5 h-3.5 text-emerald-600" />
-                                            <span>Ativa</span>
+                                            <span>Ativa (até {{ $sala->effectiveMaxReviewChanges() }} alt.)</span>
                                         </span>
                                     @else
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-gray-100 text-gray-600 border border-gray-200">
@@ -60,19 +68,33 @@
                                         <span id="classroom-students-count-{{ $sala->id }}">{{ $sala->student_attempts_count }} aluno(s)</span>
                                     </span>
                                 </td>
-                                <td class="py-4 px-6 text-right space-x-2">
-                                    <a href="{{ route('professor.salas.show', $sala) }}" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-royal-purple-800 hover:underline bg-royal-purple-50 hover:bg-royal-purple-100 px-3 py-1.5 rounded-lg border border-royal-purple-200 transition">
-                                        <x-lucide-bar-chart-2 class="w-3.5 h-3.5" />
-                                        <span>Painel / Relatório</span>
-                                    </a>
-                                    <form action="{{ route('professor.salas.destroy', $sala) }}" method="POST" class="inline" onsubmit="return confirm('Deseja realmente excluir esta sala de aula?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition">
-                                            <x-lucide-trash-2 class="w-3.5 h-3.5" />
-                                            <span>Excluir</span>
-                                        </button>
-                                    </form>
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center justify-end gap-2 flex-wrap">
+                                        <a href="{{ route('professor.salas.show', $sala) }}" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-royal-purple-800 hover:underline bg-royal-purple-50 hover:bg-royal-purple-100 px-3 py-1.5 rounded-lg border border-royal-purple-200 transition">
+                                            <x-lucide-bar-chart-2 class="w-3.5 h-3.5" />
+                                            <span>Painel</span>
+                                        </a>
+                                        <form action="{{ route('professor.salas.devolutiva.enter', $sala) }}" method="POST" class="inline"
+                                              @if($sala->is_active) onsubmit="return confirm('Ao entrar na Devolutiva, a sala será fechada definitivamente para novas respostas e não poderá mais ser reaberta. Deseja continuar?');" @endif>
+                                            @csrf
+                                            <button type="submit" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-white bg-royal-purple-800 hover:bg-royal-purple-900 px-3 py-1.5 rounded-lg shadow-2xs transition">
+                                                <x-lucide-presentation class="w-3.5 h-3.5" />
+                                                <span>Devolutiva</span>
+                                            </button>
+                                        </form>
+                                        <a href="{{ route('professor.salas.edit', $sala) }}" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-cloud-burst-800 hover:bg-magnolia-100 bg-white px-3 py-1.5 rounded-lg border border-magnolia-300 transition">
+                                            <x-lucide-edit class="w-3.5 h-3.5" />
+                                            <span>Editar</span>
+                                        </a>
+                                        <form action="{{ route('professor.salas.destroy', $sala) }}" method="POST" class="inline" onsubmit="return confirm('Deseja realmente excluir esta sala de aula?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition">
+                                                <x-lucide-trash-2 class="w-3.5 h-3.5" />
+                                                <span>Excluir</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty

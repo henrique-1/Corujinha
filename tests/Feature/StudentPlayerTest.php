@@ -4,6 +4,7 @@ use App\Models\Assessment;
 use App\Models\Classroom;
 use App\Models\Question;
 use App\Models\QuestionOption;
+use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -213,4 +214,103 @@ test('registra tempo utilizado acima do limite e exibe no historico do professor
         ->assertSee('04:05')
         ->assertSee('Tempo: 04:05 / Limite: 03:00')
         ->assertSee('(+01:05)');
+});
+
+test('sala encerrada bloqueia saveAnswer submitAttempt e finishReview redirecionando para devolutiva', function () {
+    $attempt = StudentAttempt::create([
+        'classroom_id' => $this->classroom->id,
+        'student_name' => 'Carlos Aluno',
+        'started_at' => now(),
+    ]);
+
+    $this->classroom->update(['is_active' => false]);
+
+    $expectedRedirect = route('estudante.resultado', $this->classroom->code, false);
+
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->postJson(route('estudante.salvar_resposta', $this->classroom->code), [
+            'question_id' => $this->question->id,
+            'answer' => 'B',
+            'reason' => 'Tentativa tardia',
+        ])
+        ->assertStatus(422)
+        ->assertJson([
+            'closed' => true,
+            'redirect_url' => $expectedRedirect,
+        ]);
+
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->postJson(route('estudante.concluir_atividade', $this->classroom->code))
+        ->assertStatus(422)
+        ->assertJson([
+            'closed' => true,
+            'redirect_url' => $expectedRedirect,
+        ]);
+
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->post(route('estudante.concluir_revisao', $this->classroom->code), [
+            'reviews' => [],
+        ])
+        ->assertRedirect($expectedRedirect)
+        ->assertSessionHas('info');
+});
+
+test('estudante pode alterar ate max_review_changes questoes na revisao coletiva e e bloqueado ao exceder o limite', function () {
+    $q2 = Question::create([
+        'user_id' => $this->professor->id,
+        'prompt' => 'Segunda questão da prova',
+        'support_type' => 'none',
+        'require_command_highlight' => false,
+        'require_clue_highlight' => false,
+        'correct_option' => 'A',
+    ]);
+    QuestionOption::create(['question_id' => $q2->id, 'letter' => 'A', 'text' => 'Q2 A', 'feedback' => 'OK']);
+    QuestionOption::create(['question_id' => $q2->id, 'letter' => 'B', 'text' => 'Q2 B', 'feedback' => 'Errado']);
+    $this->assessment->questions()->attach($q2->id, ['order' => 2]);
+
+    $this->classroom->update([
+        'collective_review_enabled' => true,
+        'max_review_changes' => 1,
+    ]);
+
+    $attempt = StudentAttempt::create([
+        'classroom_id' => $this->classroom->id,
+        'student_name' => 'Fernanda Limite',
+        'started_at' => now(),
+    ]);
+
+    StudentAnswer::create([
+        'student_attempt_id' => $attempt->id,
+        'question_id' => $this->question->id,
+        'initial_answer' => 'A',
+        'initial_reason' => 'Inicial Q1',
+    ]);
+    StudentAnswer::create([
+        'student_attempt_id' => $attempt->id,
+        'question_id' => $q2->id,
+        'initial_answer' => 'B',
+        'initial_reason' => 'Inicial Q2',
+    ]);
+
+    // Tenta alterar as 2 questões quando limite é 1 -> deve falhar
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->post(route('estudante.concluir_revisao', $this->classroom->code), [
+            'reviews' => [
+                $this->question->id => ['reviewed_answer' => 'B', 'review_reflection' => 'Alterei Q1'],
+                $q2->id => ['reviewed_answer' => 'A', 'review_reflection' => 'Alterei Q2'],
+            ],
+        ])
+        ->assertSessionHasErrors(['reviews']);
+
+    // Altera apenas 1 questão e escreve reflexão nas duas -> sucesso
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->post(route('estudante.concluir_revisao', $this->classroom->code), [
+            'reviews' => [
+                $this->question->id => ['reviewed_answer' => 'B', 'review_reflection' => 'Alterei apenas Q1'],
+                $q2->id => ['reviewed_answer' => 'B', 'review_reflection' => 'Mantive Q2 mas escrevi reflexão'],
+            ],
+        ])
+        ->assertRedirect(route('estudante.resultado', $this->classroom->code));
+
+    expect($attempt->fresh()->score)->toBe(1);
 });

@@ -93,6 +93,32 @@ class Question extends Model
     }
 
     /**
+     * Converte os trechos esperados cadastrados pelo professor para o formato de marcadores do TextHighlightService.
+     *
+     * @return array<int, array{kind: string, text: string}>
+     */
+    public function expectedHighlightMarkers(): array
+    {
+        $markers = [];
+
+        foreach (explode(';', (string) ($this->expected_commands ?? '')) as $snippet) {
+            $trimmed = trim($snippet);
+            if ($trimmed !== '') {
+                $markers[] = ['kind' => 'command', 'text' => $trimmed];
+            }
+        }
+
+        foreach (explode(';', (string) ($this->expected_clues ?? '')) as $snippet) {
+            $trimmed = trim($snippet);
+            if ($trimmed !== '') {
+                $markers[] = ['kind' => 'evidence', 'text' => $trimmed];
+            }
+        }
+
+        return $markers;
+    }
+
+    /**
      * Serializa a questão no formato esperado pelo player interativo do estudante.
      *
      * @return array<string, mixed>

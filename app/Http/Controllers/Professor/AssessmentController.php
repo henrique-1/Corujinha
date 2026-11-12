@@ -18,7 +18,7 @@ class AssessmentController extends Controller
     public function index(): View
     {
         $assessments = Auth::user()->assessments()
-            ->withCount('questions')
+            ->withCount(['questions', 'classrooms'])
             ->latest()
             ->paginate(10);
 
@@ -172,6 +172,107 @@ class AssessmentController extends Controller
 
         return redirect()->route('professor.avaliacoes.index')
             ->with('success', 'Avaliação excluída com sucesso.');
+    }
+
+    /**
+     * Exibe gráficos comparativos de acertos por sala e questões mais acertadas/erradas.
+     */
+    public function statistics(Assessment $avaliacao): View
+    {
+        $this->authorizeAssessment($avaliacao);
+
+        $avaliacao->load([
+            'questions',
+            'classrooms.studentAttempts.answers',
+        ]);
+
+        $questions = $avaliacao->questions;
+        $totalQuestions = $questions->count();
+
+        // 1. Acertos por Sala de Aula
+        $classroomStats = $avaliacao->classrooms->map(function ($classroom) use ($totalQuestions) {
+            $attempts = $classroom->studentAttempts;
+            $attemptsCount = $attempts->count();
+
+            $totalCorrect = $attempts->sum(function ($attempt) {
+                return $attempt->answers->filter(function ($ans) use ($attempt) {
+                    return ($attempt->status === 'reviewed' || $ans->reviewed_answer !== null)
+                        ? (bool) $ans->is_correct_final
+                        : (bool) $ans->is_correct_initial;
+                })->count();
+            });
+
+            $possibleAnswers = $attemptsCount * $totalQuestions;
+            $accuracyRate = $possibleAnswers > 0 ? round(($totalCorrect / $possibleAnswers) * 100, 1) : 0.0;
+            $avgCorrect = $attemptsCount > 0 ? round($totalCorrect / $attemptsCount, 2) : 0.0;
+
+            return [
+                'id' => $classroom->id,
+                'name' => $classroom->name,
+                'code' => $classroom->code,
+                'attempts_count' => $attemptsCount,
+                'total_correct' => $totalCorrect,
+                'avg_correct' => $avgCorrect,
+                'accuracy_rate' => $accuracyRate,
+            ];
+        })->sortByDesc('total_correct')->values();
+
+        // 2. Desempenho por Questão em todas as aplicações
+        $allAttempts = $avaliacao->classrooms->flatMap->studentAttempts;
+
+        $questionStats = $questions->values()->map(function ($question, int $idx) use ($allAttempts) {
+            $correctCount = 0;
+            $wrongCount = 0;
+
+            foreach ($allAttempts as $attempt) {
+                $ans = $attempt->answers->firstWhere('question_id', $question->id);
+                if (! $ans || (! $ans->initial_answer && ! $ans->reviewed_answer)) {
+                    continue;
+                }
+
+                $isCorrect = ($attempt->status === 'reviewed' || $ans->reviewed_answer !== null)
+                    ? (bool) $ans->is_correct_final
+                    : (bool) $ans->is_correct_initial;
+
+                if ($isCorrect) {
+                    $correctCount++;
+                } else {
+                    $wrongCount++;
+                }
+            }
+
+            $answered = $correctCount + $wrongCount;
+            $accuracyRate = $answered > 0 ? round(($correctCount / $answered) * 100, 1) : 0.0;
+            $errorRate = $answered > 0 ? round(($wrongCount / $answered) * 100, 1) : 0.0;
+
+            return [
+                'id' => $question->id,
+                'number' => $idx + 1,
+                'short_prompt' => mb_strimwidth($question->prompt, 0, 75, '...'),
+                'correct_count' => $correctCount,
+                'wrong_count' => $wrongCount,
+                'answered_count' => $answered,
+                'accuracy_rate' => $accuracyRate,
+                'error_rate' => $errorRate,
+            ];
+        });
+
+        $mostCorrectQuestions = $questionStats
+            ->sortByDesc(fn ($item) => [$item['correct_count'], $item['accuracy_rate']])
+            ->values();
+
+        $mostWrongQuestions = $questionStats
+            ->sortByDesc(fn ($item) => [$item['wrong_count'], $item['error_rate']])
+            ->values();
+
+        return view('professor.avaliacoes.estatisticas', [
+            'assessment' => $avaliacao,
+            'classroomStats' => $classroomStats,
+            'mostCorrectQuestions' => $mostCorrectQuestions,
+            'mostWrongQuestions' => $mostWrongQuestions,
+            'totalApplications' => $avaliacao->classrooms->count(),
+            'totalAttempts' => $allAttempts->count(),
+        ]);
     }
 
     private function authorizeAssessment(Assessment $assessment): void

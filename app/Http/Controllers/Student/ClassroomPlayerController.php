@@ -85,6 +85,11 @@ class ClassroomPlayerController extends Controller
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
         }
 
+        if (! $classroom->is_active) {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code])
+                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+        }
+
         $classroom->load([
             'assessment.questions.options',
         ]);
@@ -126,6 +131,14 @@ class ClassroomPlayerController extends Controller
 
         if (! $attempt) {
             return response()->json(['error' => 'Sessão expirada. Faça login na sala novamente.'], 401);
+        }
+
+        if (! $classroom->is_active) {
+            return response()->json([
+                'closed' => true,
+                'redirect_url' => route('estudante.resultado', ['code' => $classroom->code], false),
+                'error' => 'A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de resultado e devolutiva.',
+            ], 422);
         }
 
         if ($request->has('answer')) {
@@ -198,6 +211,19 @@ class ClassroomPlayerController extends Controller
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
         }
 
+        if (! $classroom->is_active) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'closed' => true,
+                    'redirect_url' => route('estudante.resultado', ['code' => $classroom->code], false),
+                    'error' => 'A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de resultado e devolutiva.',
+                ], 422);
+            }
+
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code])
+                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+        }
+
         $attempt->update([
             'completed_at' => now(),
             'status' => 'submitted',
@@ -238,14 +264,21 @@ class ClassroomPlayerController extends Controller
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
         }
 
+        if (! $classroom->is_active) {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code])
+                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+        }
+
         $classroom->load(['assessment.questions.options']);
         $answers = $attempt->answers()->with('question.options')->get()->keyBy('question_id');
+        $maxReviewChanges = $classroom->effectiveMaxReviewChanges();
 
         return view('estudante.revisao', [
             'classroom' => $classroom,
             'attempt' => $attempt,
             'questions' => $classroom->assessment->questions,
             'answers' => $answers,
+            'maxReviewChanges' => $maxReviewChanges,
         ]);
     }
 
@@ -261,7 +294,37 @@ class ClassroomPlayerController extends Controller
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
         }
 
+        if (! $classroom->is_active) {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code])
+                ->with('info', 'A avaliação foi finalizada pelo professor. Não é mais possível enviar alterações.');
+        }
+
         $reviews = $request->input('reviews', []);
+        $existingAnswers = $attempt->answers()->get()->keyBy('question_id');
+        $maxChanges = $classroom->effectiveMaxReviewChanges();
+        $changedCount = 0;
+
+        foreach ($reviews as $questionId => $data) {
+            $answerRecord = $existingAnswers->get((int) $questionId);
+            if (! $answerRecord) {
+                continue;
+            }
+
+            $revAnswer = isset($data['reviewed_answer']) ? trim(strtoupper($data['reviewed_answer'])) : null;
+            $initialAnswer = $answerRecord->initial_answer ? trim(strtoupper($answerRecord->initial_answer)) : null;
+
+            if ($revAnswer && $initialAnswer && $revAnswer !== $initialAnswer) {
+                $changedCount++;
+            }
+        }
+
+        if ($classroom->collective_review_enabled && $changedCount > $maxChanges) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'reviews' => "Você alterou {$changedCount} questão(ões), mas o limite configurado pelo professor para esta sala é de no máximo {$maxChanges} alteração(ões).",
+                ]);
+        }
 
         foreach ($reviews as $questionId => $data) {
             $question = Question::find($questionId);
@@ -272,9 +335,7 @@ class ClassroomPlayerController extends Controller
             $revAnswer = isset($data['reviewed_answer']) ? trim(strtoupper($data['reviewed_answer'])) : null;
             $reflection = $data['review_reflection'] ?? null;
 
-            $answerRecord = StudentAnswer::where('student_attempt_id', $attempt->id)
-                ->where('question_id', $question->id)
-                ->first();
+            $answerRecord = $existingAnswers->get($question->id);
 
             if ($answerRecord) {
                 $finalLetter = $revAnswer ?: $answerRecord->initial_answer;

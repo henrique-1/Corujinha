@@ -14,19 +14,37 @@
                         Avaliação: <span class="font-bold text-cloud-burst-950">{{ $classroom->assessment->title }}</span> ({{ $totalQuestions }} questões)
                     </p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <form action="{{ route('professor.salas.toggle_status', $classroom) }}" method="POST">
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <a href="{{ route('professor.salas.edit', $classroom) }}"
+                       class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl border border-magnolia-300 bg-white hover:border-royal-purple-800 text-cloud-burst-950 transition flex items-center gap-2 shadow-2xs">
+                        <x-lucide-edit class="w-4 h-4 text-royal-purple-800" />
+                        <span>Editar Sala</span>
+                    </a>
+
+                    <form action="{{ route('professor.salas.devolutiva.enter', $classroom) }}" method="POST"
+                          @if($classroom->is_active) onsubmit="return confirm('Ao entrar na Devolutiva, a sala será fechada definitivamente para novas respostas e não poderá mais ser reaberta. Deseja continuar?');" @endif>
                         @csrf
-                        <button type="submit" class="cursor-pointer text-xs font-bold px-4 py-2.5 rounded-xl border transition flex items-center gap-2 {{ $classroom->is_active ? 'border-broom-400 text-broom-950 bg-broom-50 hover:bg-broom-100' : 'border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100' }}">
-                            @if($classroom->is_active)
-                                <x-lucide-pause class="w-4 h-4 text-broom-800" />
-                                <span>Fechar Sala para Respostas</span>
-                            @else
-                                <x-lucide-play class="w-4 h-4 text-emerald-700" />
-                                <span>Reabrir Sala</span>
-                            @endif
+                        <button type="submit" class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white shadow-sm transition flex items-center gap-2">
+                            <x-lucide-presentation class="w-4 h-4" />
+                            <span>Devolutiva</span>
                         </button>
                     </form>
+
+                    @if($classroom->is_active)
+                        <form action="{{ route('professor.salas.toggle_status', $classroom) }}" method="POST"
+                              onsubmit="return confirm('Fechar a sala impede novas respostas definitivamente e não pode ser desfeito. Deseja fechar agora?');">
+                            @csrf
+                            <button type="submit" class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl border border-broom-400 text-broom-950 bg-broom-50 hover:bg-broom-100 transition flex items-center gap-2">
+                                <x-lucide-lock class="w-4 h-4 text-broom-800" />
+                                <span>Fechar Sala para Respostas</span>
+                            </button>
+                        </form>
+                    @else
+                        <span class="text-xs font-bold font-heading px-4 py-2.5 rounded-xl border border-gray-300 bg-gray-100 text-gray-700 inline-flex items-center gap-2">
+                            <x-lucide-lock class="w-4 h-4 text-gray-500" />
+                            <span>Sala Encerrada</span>
+                        </span>
+                    @endif
                 </div>
             </div>
         </div>
@@ -72,10 +90,10 @@
                     @if($classroom->collective_review_enabled)
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                             <x-lucide-check class="w-3.5 h-3.5" />
-                            <span>Ativa na Turma</span>
+                            <span>Ativa na Turma (até {{ $classroom->effectiveMaxReviewChanges() }} alteração(ões))</span>
                         </span>
                         <p class="text-xs text-cloud-burst-900/70 mt-2">
-                            Alunos revisam respostas e justificam mudanças antes de ver o gabarito.
+                            Alunos podem alterar até <b>{{ $classroom->effectiveMaxReviewChanges() }}</b> questão(ões) e justificar mudanças antes de ver o gabarito.
                         </p>
                     @else
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300">
