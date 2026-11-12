@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
@@ -77,6 +79,12 @@ class ResetPasswordController extends Controller
                     'password' => Hash::make($password),
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                if (config('session.driver') === 'database' && Schema::hasTable((string) config('session.table', 'sessions'))) {
+                    DB::table((string) config('session.table', 'sessions'))
+                        ->where('user_id', $user->id)
+                        ->delete();
+                }
             }
         );
 

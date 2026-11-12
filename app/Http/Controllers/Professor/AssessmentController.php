@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Professor;
 
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
+use App\Models\Question;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AssessmentController extends Controller
@@ -46,38 +48,26 @@ class AssessmentController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'question_ids' => ['required', 'array', 'min:1'],
-            'question_ids.*' => [
-                'required',
-                Rule::exists('questions', 'id')->where('user_id', Auth::id()),
-            ],
+            'question_ids.*' => ['required'],
             'points' => ['nullable', 'array'],
             'points.*' => ['nullable', 'numeric', 'min:0.01', 'max:99.99', 'decimal:0,2'],
         ], [
             'title.required' => 'Informe o título da avaliação.',
             'question_ids.required' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.min' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
-            'question_ids.*.exists' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
             'points.*.numeric' => 'A pontuação de cada questão deve ser um valor numérico válido.',
             'points.*.min' => 'A pontuação mínima de cada questão é 0,01.',
             'points.*.max' => 'A pontuação máxima de cada questão é 99,99.',
             'points.*.decimal' => 'A pontuação deve ter no máximo 2 casas decimais.',
         ]);
 
+        $syncData = $this->resolveQuestionSyncData($validated['question_ids'], $request->input('points', []));
+
         $assessment = Assessment::create([
             'user_id' => Auth::id(),
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
         ]);
-
-        $pointsInput = $request->input('points', []);
-        $syncData = [];
-        foreach ($validated['question_ids'] as $index => $qId) {
-            $pt = isset($pointsInput[$qId]) && is_numeric($pointsInput[$qId]) ? round((float) $pointsInput[$qId], 2) : 1.0;
-            $syncData[$qId] = [
-                'order' => $index + 1,
-                'points' => $pt > 0 ? $pt : 1.0,
-            ];
-        }
 
         $assessment->questions()->sync($syncData);
 
@@ -92,8 +82,8 @@ class AssessmentController extends Controller
     {
         $this->authorizeAssessment($avaliacao);
         $questions = Auth::user()->questions()->latest()->get();
-        $selectedQuestionIds = $avaliacao->questions->pluck('id')->all();
-        $existingPoints = $avaliacao->questions->pluck('pivot.points', 'id')->all();
+        $selectedQuestionIds = $avaliacao->questions->pluck('uuid')->all();
+        $existingPoints = $avaliacao->questions->pluck('pivot.points', 'uuid')->all();
         $areas = Auth::user()->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
         $gradeLevels = Auth::user()->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
 
@@ -118,37 +108,25 @@ class AssessmentController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'question_ids' => ['required', 'array', 'min:1'],
-            'question_ids.*' => [
-                'required',
-                Rule::exists('questions', 'id')->where('user_id', Auth::id()),
-            ],
+            'question_ids.*' => ['required'],
             'points' => ['nullable', 'array'],
             'points.*' => ['nullable', 'numeric', 'min:0.01', 'max:99.99', 'decimal:0,2'],
         ], [
             'title.required' => 'Informe o título da avaliação.',
             'question_ids.required' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
             'question_ids.min' => 'Selecione pelo menos uma pergunta para compor a avaliação.',
-            'question_ids.*.exists' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
             'points.*.numeric' => 'A pontuação de cada questão deve ser um valor numérico válido.',
             'points.*.min' => 'A pontuação mínima de cada questão é 0,01.',
             'points.*.max' => 'A pontuação máxima de cada questão é 99,99.',
             'points.*.decimal' => 'A pontuação deve ter no máximo 2 casas decimais.',
         ]);
 
+        $syncData = $this->resolveQuestionSyncData($validated['question_ids'], $request->input('points', []));
+
         $avaliacao->update([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
         ]);
-
-        $pointsInput = $request->input('points', []);
-        $syncData = [];
-        foreach ($validated['question_ids'] as $index => $qId) {
-            $pt = isset($pointsInput[$qId]) && is_numeric($pointsInput[$qId]) ? round((float) $pointsInput[$qId], 2) : 1.0;
-            $syncData[$qId] = [
-                'order' => $index + 1,
-                'points' => $pt > 0 ? $pt : 1.0,
-            ];
-        }
 
         $avaliacao->questions()->sync($syncData);
 
@@ -187,19 +165,25 @@ class AssessmentController extends Controller
         ]);
 
         $questions = $avaliacao->questions;
+        $allowedQuestionIds = $questions->pluck('id')->all();
         $totalQuestions = $questions->count();
 
-        // 1. Acertos por Sala de Aula
-        $classroomStats = $avaliacao->classrooms->map(function ($classroom) use ($totalQuestions) {
+        // 1. Acertos por Sala de Aula (restrito às questões da avaliação e deduplicado por question_id)
+        $classroomStats = $avaliacao->classrooms->map(function ($classroom) use ($totalQuestions, $allowedQuestionIds) {
             $attempts = $classroom->studentAttempts;
             $attemptsCount = $attempts->count();
 
-            $totalCorrect = $attempts->sum(function ($attempt) {
-                return $attempt->answers->filter(function ($ans) use ($attempt) {
-                    return ($attempt->status === 'reviewed' || $ans->reviewed_answer !== null)
-                        ? (bool) $ans->is_correct_final
-                        : (bool) $ans->is_correct_initial;
-                })->count();
+            $totalCorrect = $attempts->sum(function ($attempt) use ($allowedQuestionIds) {
+                return $attempt->answers
+                    ->whereIn('question_id', $allowedQuestionIds)
+                    ->sortByDesc('id')
+                    ->unique('question_id')
+                    ->filter(function ($ans) use ($attempt) {
+                        return ($attempt->status === 'reviewed' || $ans->reviewed_answer !== null)
+                            ? (bool) $ans->is_correct_final
+                            : (bool) $ans->is_correct_initial;
+                    })
+                    ->count();
             });
 
             $possibleAnswers = $attemptsCount * $totalQuestions;
@@ -207,7 +191,7 @@ class AssessmentController extends Controller
             $avgCorrect = $attemptsCount > 0 ? round($totalCorrect / $attemptsCount, 2) : 0.0;
 
             return [
-                'id' => $classroom->id,
+                'id' => $classroom->uuid,
                 'name' => $classroom->name,
                 'code' => $classroom->code,
                 'attempts_count' => $attemptsCount,
@@ -225,7 +209,10 @@ class AssessmentController extends Controller
             $wrongCount = 0;
 
             foreach ($allAttempts as $attempt) {
-                $ans = $attempt->answers->firstWhere('question_id', $question->id);
+                $ans = $attempt->answers
+                    ->where('question_id', $question->id)
+                    ->sortByDesc('id')
+                    ->first();
                 if (! $ans || (! $ans->initial_answer && ! $ans->reviewed_answer)) {
                     continue;
                 }
@@ -246,7 +233,7 @@ class AssessmentController extends Controller
             $errorRate = $answered > 0 ? round(($wrongCount / $answered) * 100, 1) : 0.0;
 
             return [
-                'id' => $question->id,
+                'id' => $question->uuid,
                 'number' => $idx + 1,
                 'short_prompt' => mb_strimwidth($question->prompt, 0, 75, '...'),
                 'correct_count' => $correctCount,
@@ -273,6 +260,53 @@ class AssessmentController extends Controller
             'totalApplications' => $avaliacao->classrooms->count(),
             'totalAttempts' => $allAttempts->count(),
         ]);
+    }
+
+    /**
+     * Resolve e valida que todas as questões pertencem ao professor autenticado (aceitando UUID ou ID).
+     *
+     * @param  array<int, string|int>  $questionIdentifiers
+     * @param  array<string|int, mixed>  $pointsInput
+     * @return array<int, array{order: int, points: float}>
+     */
+    private function resolveQuestionSyncData(array $questionIdentifiers, array $pointsInput): array
+    {
+        /** @var Collection<int, Question> $ownedQuestions */
+        $ownedQuestions = Auth::user()->questions()->get();
+        $byId = $ownedQuestions->keyBy('id');
+        $byUuid = $ownedQuestions->keyBy('uuid');
+
+        $syncData = [];
+        $order = 1;
+
+        foreach ($questionIdentifiers as $rawIdentifier) {
+            if (! is_string($rawIdentifier) && ! is_int($rawIdentifier)) {
+                throw ValidationException::withMessages([
+                    'question_ids' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
+                ]);
+            }
+
+            $keyStr = (string) $rawIdentifier;
+            $question = ctype_digit($keyStr)
+                ? $byId->get((int) $keyStr)
+                : $byUuid->get($keyStr);
+
+            if (! $question) {
+                throw ValidationException::withMessages([
+                    'question_ids.0' => 'Uma ou mais perguntas selecionadas não pertencem à sua conta.',
+                ]);
+            }
+
+            $rawPt = $pointsInput[$keyStr] ?? $pointsInput[$question->uuid] ?? $pointsInput[$question->id] ?? null;
+            $pt = $rawPt !== null && is_numeric($rawPt) ? round((float) $rawPt, 2) : 1.0;
+
+            $syncData[$question->id] = [
+                'order' => $order++,
+                'points' => $pt > 0 ? $pt : 1.0,
+            ];
+        }
+
+        return $syncData;
     }
 
     private function authorizeAssessment(Assessment $assessment): void

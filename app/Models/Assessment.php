@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +11,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Assessment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicUuid;
 
     protected $fillable = [
+        'uuid',
         'user_id',
         'title',
         'description',
+    ];
+
+    protected $hidden = [
+        'id',
+        'user_id',
     ];
 
     public function user(): BelongsTo

@@ -172,9 +172,11 @@
                                     <span class="text-[10px] font-bold text-cloud-burst-600 block uppercase">Destaques com Marca-Texto ({{ count($ans->initial_markers) }} marcações):</span>
                                     <div class="flex flex-wrap gap-1 mt-1">
                                         @foreach($ans->initial_markers as $m)
-                                            <span class="px-2 py-0.5 rounded text-[11px] font-bold font-heading {{ ($m['kind'] ?? '') === 'command' ? 'bg-broom-200 text-broom-950' : 'bg-sky-blue-200 text-sky-blue-950' }}">
-                                                "{{ $m['text'] ?? '' }}"
-                                            </span>
+                                            @if(is_array($m) && isset($m['text']) && is_string($m['text']))
+                                                <span class="px-2 py-0.5 rounded text-[11px] font-bold font-heading {{ ($m['kind'] ?? '') === 'command' ? 'bg-broom-200 text-broom-950' : 'bg-sky-blue-200 text-sky-blue-950' }}">
+                                                    "{{ $m['text'] }}"
+                                                </span>
+                                            @endif
                                         @endforeach
                                     </div>
                                 </div>

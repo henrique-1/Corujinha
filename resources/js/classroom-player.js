@@ -772,8 +772,8 @@ export function initClassroomPlayer() {
     }
 
     // Atualização em tempo real de questões editadas e encerramento da sala via Laravel Reverb
-    if (window.Echo && config.classroomId) {
-        window.Echo.channel(`classroom.${config.classroomId}`)
+    if (window.Echo && config.broadcastKey) {
+        window.Echo.channel(`classroom.player.${config.broadcastKey}`)
             .listen('.question.updated', (e) => {
                 const updatedQ = e?.question;
                 if (!updatedQ || !updatedQ.id) return;

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Rules\CpfRule;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -27,7 +28,7 @@ class ProfessorListUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new Channel('admin.professores'),
+            new PrivateChannel('admin.professores'),
         ];
     }
 
@@ -49,7 +50,7 @@ class ProfessorListUpdated implements ShouldBroadcastNow
         return [
             'action' => $this->action,
             'professor' => [
-                'id' => $this->professor->id,
+                'id' => $this->professor->uuid,
                 'name' => $this->professor->name,
                 'email' => $this->professor->email,
                 'cpf' => $this->professor->cpf ? CpfRule::format($this->professor->cpf) : 'Pendente de preenchimento',

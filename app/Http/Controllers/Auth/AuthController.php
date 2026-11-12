@@ -56,8 +56,9 @@ class AuthController extends Controller
             ]);
         }
 
-        // Se TOTP estiver ativo, direciona para o desafio de dois fatores
+        // Se TOTP estiver ativo, direciona para o desafio de dois fatores com novo ID de sessão
         if ($user->isTotpEnabled()) {
+            $request->session()->regenerate();
             $request->session()->put('totp_auth_user_id', $user->id);
             $request->session()->put('totp_remember', $request->boolean('remember'));
 
@@ -99,9 +100,16 @@ class AuthController extends Controller
             'code.size' => 'O código deve ter 6 dígitos.',
         ]);
 
-        $user = User::findOrFail($userId);
+        $user = User::find($userId);
+        if (! $user || ! $user->isActive() || ! $user->isTotpEnabled()) {
+            $request->session()->forget(['totp_auth_user_id', 'totp_remember']);
 
-        if (! $totpService->verify((string) $user->totp_secret, $request->input('code'))) {
+            return redirect()->route('login')->withErrors([
+                'email' => 'Sua conta não está ativa ou a verificação em duas etapas não está disponível.',
+            ]);
+        }
+
+        if (! $totpService->verifyOnce($user, (string) $request->input('code'))) {
             return back()->withErrors([
                 'code' => 'Código de autenticação inválido ou expirado. Tente novamente.',
             ]);

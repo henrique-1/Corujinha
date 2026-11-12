@@ -28,18 +28,28 @@ class TextHighlightService
             ? RichTextSanitizer::toHtml($text)
             : nl2br(e($text));
 
-        // Filtra marcadores pelo alvo se informado
-        $filtered = array_filter($markers, function ($m) use ($target) {
-            if ($target !== null && isset($m['target'])) {
-                if ($target === 'support' || $target === 'source') {
-                    return in_array($m['target'], ['support', 'source'], true);
-                }
-
-                return $m['target'] === $target;
+        // Filtra marcadores pelo alvo se informado e garante tipo válido
+        $filtered = [];
+        foreach ($markers as $m) {
+            if (! is_array($m) || ! isset($m['text']) || ! is_string($m['text'])) {
+                continue;
             }
 
-            return true;
-        });
+            if ($target !== null && isset($m['target']) && is_string($m['target'])) {
+                if ($target === 'support' || $target === 'source') {
+                    if (! in_array($m['target'], ['support', 'source'], true)) {
+                        continue;
+                    }
+                } elseif ($m['target'] !== $target) {
+                    continue;
+                }
+            }
+
+            $filtered[] = $m;
+            if (count($filtered) >= 200) {
+                break;
+            }
+        }
 
         if (empty($filtered)) {
             return $baseHtml;
@@ -131,17 +141,30 @@ class TextHighlightService
             $lastEnd = $vm['end'];
         }
 
-        // Aplica as tags <mark> dividindo cada DOMText afetado
+        // Aplica as tags <mark> dividindo cada DOMText afetado com ponteiro ordenado O(T + K)
+        $markerIdx = 0;
+        $markerCount = count($nonOverlapping);
+
         foreach ($textNodes as $entry) {
             $node = $entry['node'];
             $nodeStart = $entry['start'];
             $nodeEnd = $entry['end'];
             $nodeText = $entry['text'];
 
-            $overlapping = array_filter(
-                $nonOverlapping,
-                fn ($m) => $m['end'] > $nodeStart && $m['start'] < $nodeEnd
-            );
+            while ($markerIdx < $markerCount && $nonOverlapping[$markerIdx]['end'] <= $nodeStart) {
+                $markerIdx++;
+            }
+
+            if ($markerIdx >= $markerCount || $nonOverlapping[$markerIdx]['start'] >= $nodeEnd) {
+                continue;
+            }
+
+            $overlapping = [];
+            for ($k = $markerIdx; $k < $markerCount && $nonOverlapping[$k]['start'] < $nodeEnd; $k++) {
+                if ($nonOverlapping[$k]['end'] > $nodeStart) {
+                    $overlapping[] = $nonOverlapping[$k];
+                }
+            }
 
             if (empty($overlapping)) {
                 continue;

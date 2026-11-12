@@ -141,11 +141,11 @@
                     </thead>
                     <tbody id="attempts-table-body" class="divide-y divide-royal-purple-100/60">
                         @forelse($attempts as $att)
-                            <tr id="attempt-row-{{ $att->id }}" class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="attempt-row-{{ $att->uuid }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-bold text-cloud-burst-950">
                                     {{ $att->student_name }}
                                 </td>
-                                <td id="status-cell-{{ $att->id }}" class="py-4 px-6">
+                                <td id="status-cell-{{ $att->uuid }}" class="py-4 px-6">
                                     @if($att->status === 'reviewed')
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                             Revisão Concluída
@@ -163,10 +163,10 @@
                                 <td class="py-4 px-6 text-cloud-burst-900/70 text-xs">
                                     {{ $att->started_at->format('d/m/Y H:i') }}
                                 </td>
-                                <td id="concluded-cell-{{ $att->id }}" class="py-4 px-6 text-cloud-burst-900/70 text-xs">
+                                <td id="concluded-cell-{{ $att->uuid }}" class="py-4 px-6 text-cloud-burst-900/70 text-xs">
                                     {{ $att->reviewed_at ? $att->reviewed_at->format('d/m/Y H:i') : ($att->completed_at ? $att->completed_at->format('d/m/Y H:i') : '—') }}
                                 </td>
-                                <td id="score-cell-{{ $att->id }}" class="py-4 px-6 text-center font-bold text-royal-purple-800">
+                                <td id="score-cell-{{ $att->uuid }}" class="py-4 px-6 text-center font-bold text-royal-purple-800">
                                     {{ $att->score }} / {{ $totalQuestions }}
                                 </td>
                                 <td class="py-4 px-6 text-right">
@@ -198,7 +198,7 @@
     @push('scripts')
         <script>
             window.__CLASSROOM_MONITOR__ = {
-                classroomId: {{ $classroom->id }},
+                classroomId: @json($classroom->uuid),
                 totalAttempts: {{ $attempts->total() }},
                 totalQuestions: {{ $totalQuestions }},
                 attemptUrlPattern: "{{ route('professor.salas.tentativa', [$classroom, '__ATTEMPT_ID__']) }}"

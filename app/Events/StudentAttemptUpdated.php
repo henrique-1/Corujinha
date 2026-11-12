@@ -5,6 +5,7 @@ namespace App\Events;
 use App\Models\StudentAttempt;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -16,7 +17,10 @@ class StudentAttemptUpdated implements ShouldBroadcastNow
     /**
      * Create a new event instance.
      */
-    public function __construct(public StudentAttempt $attempt) {}
+    public function __construct(public StudentAttempt $attempt)
+    {
+        $this->attempt->loadMissing('classroom');
+    }
 
     /**
      * Get the channels the event should broadcast on.
@@ -26,7 +30,7 @@ class StudentAttemptUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new Channel('classroom.'.$this->attempt->classroom_id),
+            new PrivateChannel('classroom.monitor.'.$this->attempt->classroom?->uuid),
         ];
     }
 
@@ -47,7 +51,7 @@ class StudentAttemptUpdated implements ShouldBroadcastNow
     {
         return [
             'attempt' => [
-                'id' => $this->attempt->id,
+                'id' => $this->attempt->uuid,
                 'status' => $this->attempt->status,
                 'score' => $this->attempt->score,
                 'reviewed_at' => $this->attempt->reviewed_at?->format('d/m/Y H:i'),

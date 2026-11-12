@@ -42,7 +42,7 @@
                                 class="w-full px-4 py-3 text-sm border border-royal-purple-200 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-200 focus:outline-none bg-white transition">
                             <option value="" data-questions-count="0">Selecione uma avaliação...</option>
                             @foreach($assessments as $av)
-                                <option value="{{ $av->id }}" data-questions-count="{{ $av->questions_count }}" {{ old('assessment_id') == $av->id ? 'selected' : '' }}>
+                                <option value="{{ $av->uuid }}" data-questions-count="{{ $av->questions_count }}" {{ old('assessment_id') == $av->uuid ? 'selected' : '' }}>
                                     {{ $av->title }} ({{ $av->questions_count }} questões)
                                 </option>
                             @endforeach

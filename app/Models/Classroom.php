@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,17 +11,35 @@ use Illuminate\Support\Str;
 
 class Classroom extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicUuid;
 
     protected $fillable = [
+        'uuid',
         'user_id',
         'assessment_id',
         'name',
         'code',
+        'broadcast_key',
         'collective_review_enabled',
         'max_review_changes',
         'is_active',
     ];
+
+    protected $hidden = [
+        'id',
+        'user_id',
+        'assessment_id',
+        'broadcast_key',
+    ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $classroom): void {
+            if (empty($classroom->broadcast_key)) {
+                $classroom->broadcast_key = Str::random(40);
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -76,12 +95,12 @@ class Classroom extends Model
     }
 
     /**
-     * Gera um código de sala legível e único.
+     * Gera um código de sala legível e único (padrão AVAL-XXXXXX).
      */
     public static function generateUniqueCode(string $prefix = 'AVAL'): string
     {
         do {
-            $code = $prefix.'-'.strtoupper(Str::random(4));
+            $code = $prefix.'-'.strtoupper(Str::random(6));
         } while (self::where('code', $code)->exists());
 
         return $code;

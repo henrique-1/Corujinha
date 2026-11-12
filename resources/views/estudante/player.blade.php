@@ -185,7 +185,7 @@
     {{-- Injeta dados e inicializador do Player --}}
     <script>
         window.__CLASSROOM_DATA__ = {
-            classroomId: @json($classroom->id),
+            broadcastKey: @json($classroom->broadcast_key),
             code: @json($classroom->code),
             saveUrl: @json(route('estudante.salvar_resposta', $classroom->code)),
             finishUrl: @json(route('estudante.concluir_atividade', $classroom->code)),

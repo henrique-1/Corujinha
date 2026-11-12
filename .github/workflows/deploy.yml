@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: production-deploy
   cancel-in-progress: false
@@ -17,7 +20,7 @@ jobs:
 
     steps:
       - name: Executar Deploy via SSH na VPS
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@e63b4fd3ac9ff8ca3efce8ef18bd7d57219853b1 # v1.2.0
         env:
           LARAVEL_ENV_ENCRYPTION_KEY: ${{ secrets.LARAVEL_ENV_ENCRYPTION_KEY }}
         with:
@@ -59,7 +62,7 @@ jobs:
 
             if [ -f ".env.production.encrypted" ] && [ -n "$LARAVEL_ENV_ENCRYPTION_KEY" ]; then
               echo "==> Descriptografando .env.production.encrypted para .env..."
-              $PHP_BIN artisan env:decrypt --env=production --filename=.env --key="$LARAVEL_ENV_ENCRYPTION_KEY" --force
+              $PHP_BIN artisan env:decrypt --env=production --filename=.env --force
             elif [ ! -f ".env" ] && [ -f ".env.production" ]; then
               echo "==> Copiando .env.production para .env..."
               cp .env.production .env

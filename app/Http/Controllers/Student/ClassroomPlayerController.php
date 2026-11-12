@@ -10,9 +10,11 @@ use App\Models\Question;
 use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
 use App\Services\BroadcastService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
 class ClassroomPlayerController extends Controller
@@ -32,8 +34,13 @@ class ClassroomPlayerController extends Controller
      */
     public function start(Request $request): RedirectResponse
     {
+        $missKey = $this->classroomMissLimiterKey($request);
+        if (RateLimiter::tooManyAttempts($missKey, 20)) {
+            abort(429, 'Muitas tentativas com códigos inválidos. Aguarde um minuto.');
+        }
+
         $validated = $request->validate([
-            'code' => ['required', 'string'],
+            'code' => ['required', 'string', 'max:20'],
             'student_name' => ['required', 'string', 'min:3', 'max:255'],
         ], [
             'code.required' => 'Informe o código da sala de aula.',
@@ -45,6 +52,8 @@ class ClassroomPlayerController extends Controller
         $classroom = Classroom::where('code', $code)->first();
 
         if (! $classroom) {
+            RateLimiter::hit($missKey, 60);
+
             return back()->withInput()->withErrors([
                 'code' => 'Sala de aula não encontrada. Verifique o código com seu professor.',
             ]);
@@ -65,6 +74,7 @@ class ClassroomPlayerController extends Controller
 
         BroadcastService::dispatch(new StudentJoinedClassroom($attempt));
 
+        $request->session()->regenerate();
         session([
             'current_attempt_id' => $attempt->id,
             'current_classroom_code' => $classroom->code,
@@ -76,9 +86,19 @@ class ClassroomPlayerController extends Controller
     /**
      * Tela de execução da avaliação (player de questões).
      */
-    public function player(string $code): View|RedirectResponse
+    public function player(Request $request, string $code): View|RedirectResponse
     {
-        $classroom = Classroom::where('code', strtoupper($code))->firstOrFail();
+        $missKey = $this->classroomMissLimiterKey($request);
+        if (RateLimiter::tooManyAttempts($missKey, 20)) {
+            abort(429, 'Muitas tentativas com códigos inválidos. Aguarde um minuto.');
+        }
+
+        $classroom = Classroom::where('code', strtoupper($code))->first();
+        if (! $classroom) {
+            RateLimiter::hit($missKey, 60);
+            abort(404);
+        }
+
         $attempt = $this->getAttempt($classroom);
 
         if (! $attempt) {
@@ -90,17 +110,24 @@ class ClassroomPlayerController extends Controller
                 ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
         }
 
+        if ($attempt->status !== 'in_progress') {
+            if ($classroom->collective_review_enabled && $attempt->status === 'submitted') {
+                return redirect()->route('estudante.revisao', ['code' => $classroom->code]);
+            }
+
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
+        }
+
         $classroom->load([
             'assessment.questions.options',
         ]);
 
         $questions = $classroom->assessment->questions;
+        $savedAnswersByQuestionId = $attempt->answers()->get()->keyBy('question_id');
 
         // Mapeia perguntas para o formato do player
-        $questionsData = $questions->map(function (Question $q, $idx) use ($attempt) {
-            $savedAnswer = StudentAnswer::where('student_attempt_id', $attempt->id)
-                ->where('question_id', $q->id)
-                ->first();
+        $questionsData = $questions->map(function (Question $q, $idx) use ($savedAnswersByQuestionId) {
+            $savedAnswer = $savedAnswersByQuestionId->get($q->id);
 
             return array_merge($q->toPlayerPayload(), [
                 'index' => $idx + 1,
@@ -141,27 +168,71 @@ class ClassroomPlayerController extends Controller
             ], 422);
         }
 
-        if ($request->has('answer')) {
+        if ($attempt->status !== 'in_progress') {
+            return response()->json([
+                'error' => 'As respostas iniciais já foram enviadas e não podem mais ser alteradas.',
+            ], 422);
+        }
+
+        if (is_string($request->input('answer'))) {
             $request->merge(['answer' => trim(strtoupper($request->input('answer')))]);
         }
 
         $validated = $request->validate([
-            'question_id' => ['required', 'exists:questions,id'],
-            'answer' => ['required', 'in:A,B,C,D,E'],
-            'reason' => ['required', 'string'],
-            'markers' => ['nullable', 'array'],
-            'time_spent' => ['nullable', 'integer'],
+            'question_id' => ['required'],
+            'answer' => ['required', 'string', 'in:A,B,C,D,E'],
+            'reason' => ['required', 'string', 'max:5000'],
+            'markers' => ['nullable', 'array', 'max:200'],
+            'markers.*' => ['required', 'array'],
+            'markers.*.id' => ['nullable', 'string', 'max:64'],
+            'markers.*.kind' => ['required', 'string', 'in:command,evidence,clue'],
+            'markers.*.target' => ['nullable', 'string', 'in:source,support,prompt,title'],
+            'markers.*.text' => ['nullable', 'string', 'max:2000'],
+            'markers.*.start' => ['nullable', 'integer', 'min:0'],
+            'markers.*.end' => ['nullable', 'integer', 'min:0'],
+            'time_spent' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $question = Question::findOrFail($validated['question_id']);
+        $questionIdentifier = $validated['question_id'];
+        if (! is_string($questionIdentifier) && ! is_int($questionIdentifier)) {
+            return response()->json(['error' => 'Identificador de questão inválido.'], 422);
+        }
+
+        $question = $classroom->assessment
+            ->questions()
+            ->where(function ($query) use ($questionIdentifier) {
+                if (is_int($questionIdentifier) || ctype_digit((string) $questionIdentifier)) {
+                    $query->where('questions.id', (int) $questionIdentifier);
+                } else {
+                    $query->where('questions.uuid', (string) $questionIdentifier);
+                }
+            })
+            ->first();
+
+        if (! $question) {
+            return response()->json([
+                'error' => 'Esta questão não pertence à avaliação desta sala de aula.',
+            ], 422);
+        }
+
         $givenAnswer = trim(strtoupper($validated['answer']));
         $correctAnswer = trim(strtoupper($question->correct_option));
         $isCorrect = ($givenAnswer === $correctAnswer);
 
         // Validação das regras de marca-texto da questão
-        $markers = $validated['markers'] ?? [];
+        $markers = array_values(array_map(function (array $m): array {
+            return [
+                'id' => isset($m['id']) ? (string) $m['id'] : null,
+                'kind' => (string) $m['kind'],
+                'target' => isset($m['target']) ? (string) $m['target'] : null,
+                'text' => isset($m['text']) && is_string($m['text']) ? $m['text'] : '',
+                'start' => isset($m['start']) ? (int) $m['start'] : null,
+                'end' => isset($m['end']) ? (int) $m['end'] : null,
+            ];
+        }, $validated['markers'] ?? []));
+
         $hasCommandMarker = collect($markers)->contains('kind', 'command');
-        $hasClueMarker = collect($markers)->contains(fn ($m) => in_array($m['kind'] ?? '', ['evidence', 'clue']));
+        $hasClueMarker = collect($markers)->contains(fn ($m) => in_array($m['kind'] ?? '', ['evidence', 'clue'], true));
 
         if ($question->require_command_highlight && ! $hasCommandMarker) {
             return response()->json([
@@ -177,20 +248,24 @@ class ClassroomPlayerController extends Controller
 
         $seconds = max(0, (int) round(($validated['time_spent'] ?? 0) / 1000));
 
-        StudentAnswer::updateOrCreate(
-            [
-                'student_attempt_id' => $attempt->id,
-                'question_id' => $question->id,
-            ],
-            [
-                'initial_answer' => $givenAnswer,
-                'initial_reason' => $validated['reason'],
-                'initial_markers' => $markers,
-                'is_correct_initial' => $isCorrect,
-                'is_correct_final' => $isCorrect,
-                'time_spent_seconds' => $seconds,
-            ]
-        );
+        $attributes = [
+            'student_attempt_id' => $attempt->id,
+            'question_id' => $question->id,
+        ];
+        $values = [
+            'initial_answer' => $givenAnswer,
+            'initial_reason' => $validated['reason'],
+            'initial_markers' => $markers,
+            'is_correct_initial' => $isCorrect,
+            'is_correct_final' => $isCorrect,
+            'time_spent_seconds' => $seconds,
+        ];
+
+        try {
+            StudentAnswer::updateOrCreate($attributes, $values);
+        } catch (UniqueConstraintViolationException) {
+            StudentAnswer::where($attributes)->update($values);
+        }
 
         $attempt->recalculateScore();
 
@@ -224,19 +299,19 @@ class ClassroomPlayerController extends Controller
                 ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
         }
 
-        $attempt->update([
-            'completed_at' => now(),
-            'status' => 'submitted',
-        ]);
-        $attempt->recalculateScore();
+        if ($attempt->status === 'in_progress') {
+            $attempt->update([
+                'completed_at' => now(),
+                'status' => 'submitted',
+            ]);
+            $attempt->recalculateScore();
 
-        BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
+            BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
+        }
 
-        // Se a sala tem revisão coletiva ativada, direciona para a tela de revisão
-        if ($classroom->collective_review_enabled) {
+        if ($classroom->collective_review_enabled && $attempt->status === 'submitted') {
             $nextUrl = route('estudante.revisao', ['code' => $classroom->code]);
         } else {
-            // Se não tem revisão coletiva, direciona imediatamente para o resultado
             $nextUrl = route('estudante.resultado', ['code' => $classroom->code]);
         }
 
@@ -254,7 +329,6 @@ class ClassroomPlayerController extends Controller
     {
         $classroom = Classroom::where('code', strtoupper($code))->firstOrFail();
 
-        // Se a sala não permite revisão coletiva, pula direto para o resultado
         if (! $classroom->collective_review_enabled) {
             return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
         }
@@ -267,6 +341,14 @@ class ClassroomPlayerController extends Controller
         if (! $classroom->is_active) {
             return redirect()->route('estudante.resultado', ['code' => $classroom->code])
                 ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+        }
+
+        if ($attempt->status === 'in_progress') {
+            return redirect()->route('estudante.player', ['code' => $classroom->code]);
+        }
+
+        if ($attempt->status === 'reviewed') {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
         }
 
         $classroom->load(['assessment.questions.options']);
@@ -283,7 +365,7 @@ class ClassroomPlayerController extends Controller
     }
 
     /**
-     * Salva a revisão do aluno e conclui.
+     * Salva a revisão do aluno e conclui (transição única de submitted -> reviewed).
      */
     public function finishReview(Request $request, string $code): RedirectResponse
     {
@@ -299,26 +381,77 @@ class ClassroomPlayerController extends Controller
                 ->with('info', 'A avaliação foi finalizada pelo professor. Não é mais possível enviar alterações.');
         }
 
-        $reviews = $request->input('reviews', []);
+        if (! $classroom->collective_review_enabled) {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
+        }
+
+        if ($attempt->status === 'in_progress') {
+            return redirect()->route('estudante.player', ['code' => $classroom->code]);
+        }
+
+        if ($attempt->status === 'reviewed') {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
+        }
+
+        $classroom->loadMissing('assessment.questions');
+        $assessmentQuestions = $classroom->assessment->questions;
+        $questionsById = $assessmentQuestions->keyBy('id');
+        $questionsByUuid = $assessmentQuestions->keyBy('uuid');
         $existingAnswers = $attempt->answers()->get()->keyBy('question_id');
+
+        $maxQuestionsCount = max(1, $assessmentQuestions->count());
+
+        $validated = $request->validate([
+            'reviews' => ['nullable', 'array', 'max:'.$maxQuestionsCount],
+            'reviews.*' => ['required', 'array'],
+            'reviews.*.reviewed_answer' => ['nullable', 'string', 'in:A,B,C,D,E,a,b,c,d,e'],
+            'reviews.*.review_reflection' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $reviews = $validated['reviews'] ?? [];
         $maxChanges = $classroom->effectiveMaxReviewChanges();
         $changedCount = 0;
 
-        foreach ($reviews as $questionId => $data) {
-            $answerRecord = $existingAnswers->get((int) $questionId);
+        /** @var array<int, array{question: Question, answerRecord: StudentAnswer, revAnswer: ?string, reflection: ?string}> $resolvedReviews */
+        $resolvedReviews = [];
+
+        foreach ($reviews as $questionKey => $data) {
+            $keyStr = (string) $questionKey;
+            $question = ctype_digit($keyStr)
+                ? $questionsById->get((int) $keyStr)
+                : $questionsByUuid->get($keyStr);
+
+            if (! $question) {
+                continue;
+            }
+
+            $answerRecord = $existingAnswers->get($question->id);
             if (! $answerRecord) {
                 continue;
             }
 
-            $revAnswer = isset($data['reviewed_answer']) ? trim(strtoupper($data['reviewed_answer'])) : null;
+            $revAnswer = isset($data['reviewed_answer']) && is_string($data['reviewed_answer']) && trim($data['reviewed_answer']) !== ''
+                ? strtoupper(trim($data['reviewed_answer']))
+                : null;
+            $reflection = isset($data['review_reflection']) && is_string($data['review_reflection'])
+                ? $data['review_reflection']
+                : null;
+
             $initialAnswer = $answerRecord->initial_answer ? trim(strtoupper($answerRecord->initial_answer)) : null;
 
             if ($revAnswer && $initialAnswer && $revAnswer !== $initialAnswer) {
                 $changedCount++;
             }
+
+            $resolvedReviews[$question->id] = [
+                'question' => $question,
+                'answerRecord' => $answerRecord,
+                'revAnswer' => $revAnswer,
+                'reflection' => $reflection,
+            ];
         }
 
-        if ($classroom->collective_review_enabled && $changedCount > $maxChanges) {
+        if ($changedCount > $maxChanges) {
             return back()
                 ->withInput()
                 ->withErrors([
@@ -326,27 +459,17 @@ class ClassroomPlayerController extends Controller
                 ]);
         }
 
-        foreach ($reviews as $questionId => $data) {
-            $question = Question::find($questionId);
-            if (! $question) {
-                continue;
-            }
+        foreach ($resolvedReviews as $item) {
+            $question = $item['question'];
+            $answerRecord = $item['answerRecord'];
+            $finalLetter = $item['revAnswer'] ?: $answerRecord->initial_answer;
+            $isCorrectFinal = (trim(strtoupper((string) $finalLetter)) === trim(strtoupper($question->correct_option)));
 
-            $revAnswer = isset($data['reviewed_answer']) ? trim(strtoupper($data['reviewed_answer'])) : null;
-            $reflection = $data['review_reflection'] ?? null;
-
-            $answerRecord = $existingAnswers->get($question->id);
-
-            if ($answerRecord) {
-                $finalLetter = $revAnswer ?: $answerRecord->initial_answer;
-                $isCorrectFinal = (trim(strtoupper($finalLetter)) === trim(strtoupper($question->correct_option)));
-
-                $answerRecord->update([
-                    'reviewed_answer' => $finalLetter,
-                    'review_reflection' => $reflection,
-                    'is_correct_final' => $isCorrectFinal,
-                ]);
-            }
+            $answerRecord->update([
+                'reviewed_answer' => $finalLetter,
+                'review_reflection' => $item['reflection'],
+                'is_correct_final' => $isCorrectFinal,
+            ]);
         }
 
         $attempt->update([
@@ -370,6 +493,16 @@ class ClassroomPlayerController extends Controller
 
         if (! $attempt) {
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
+        }
+
+        if ($classroom->is_active) {
+            if ($attempt->status === 'in_progress') {
+                return redirect()->route('estudante.player', ['code' => $classroom->code]);
+            }
+
+            if ($classroom->collective_review_enabled && $attempt->status !== 'reviewed') {
+                return redirect()->route('estudante.revisao', ['code' => $classroom->code]);
+            }
         }
 
         $classroom->load(['assessment.questions.options']);
@@ -403,5 +536,10 @@ class ClassroomPlayerController extends Controller
         return StudentAttempt::where('id', $attemptId)
             ->where('classroom_id', $classroom->id)
             ->first();
+    }
+
+    private function classroomMissLimiterKey(Request $request): string
+    {
+        return 'sala-code-miss:'.$request->ip();
     }
 }

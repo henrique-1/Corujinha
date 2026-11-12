@@ -89,7 +89,7 @@
                             <div class="question-item flex items-center justify-between gap-3 p-4 hover:bg-royal-purple-50/30 transition"
                                  data-area="{{ $q->area }}" data-grade="{{ $q->grade_level }}" data-prompt="{{ strtolower($q->prompt . ' ' . $q->support_title . ' ' . $q->focus) }}">
                                 <label class="flex items-start gap-3 cursor-pointer grow">
-                                    <input type="checkbox" name="question_ids[]" value="{{ $q->id }}" {{ is_array(old('question_ids')) && in_array($q->id, old('question_ids')) ? 'checked' : '' }}
+                                    <input type="checkbox" name="question_ids[]" value="{{ $q->uuid }}" {{ is_array(old('question_ids')) && in_array($q->uuid, old('question_ids')) ? 'checked' : '' }}
                                            class="question-checkbox mt-1 rounded text-royal-purple-800 focus:ring-royal-purple-800 w-4 h-4">
                                     <div class="grow">
                                         <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -127,7 +127,7 @@
 
                                 <div class="flex items-center gap-1.5 shrink-0 pl-3 border-l border-magnolia-200">
                                     <label class="text-[11px] font-bold font-heading text-cloud-burst-800">Pontos:</label>
-                                    <input type="number" step="0.01" min="0.01" max="99.99" name="points[{{ $q->id }}]" value="{{ number_format((float) old('points.'.$q->id, '1.00'), 2, '.', '') }}"
+                                    <input type="number" step="0.01" min="0.01" max="99.99" name="points[{{ $q->uuid }}]" value="{{ number_format((float) old('points.'.$q->uuid, '1.00'), 2, '.', '') }}"
                                            class="question-point-input w-20 px-2 py-1 text-xs border border-magnolia-300 rounded-lg text-center font-mono font-bold focus:border-royal-purple-800 focus:outline-none">
                                 </div>
                             </div>

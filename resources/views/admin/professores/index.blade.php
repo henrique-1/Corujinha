@@ -30,17 +30,17 @@
                     </thead>
                     <tbody id="professores-table-body" class="divide-y divide-magnolia-100">
                         @forelse($professores as $prof)
-                            <tr id="professor-row-{{ $prof->id }}" class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="professor-row-{{ $prof->uuid }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-bold font-heading text-cloud-burst-950">
                                     {{ $prof->name }}
                                 </td>
                                 <td class="py-4 px-6 text-cloud-burst-800">
                                     {{ $prof->email }}
                                 </td>
-                                <td class="py-4 px-6 text-cloud-burst-800 font-mono text-xs" id="prof-cpf-{{ $prof->id }}">
+                                <td class="py-4 px-6 text-cloud-burst-800 font-mono text-xs" id="prof-cpf-{{ $prof->uuid }}">
                                     {{ $prof->cpf ? \App\Rules\CpfRule::format($prof->cpf) : 'Pendente de preenchimento' }}
                                 </td>
-                                <td class="py-4 px-6" id="prof-status-{{ $prof->id }}">
+                                <td class="py-4 px-6" id="prof-status-{{ $prof->uuid }}">
                                     @if($prof->isActive())
                                         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-emerald-100 text-emerald-800 border border-emerald-200">
                                             <x-lucide-check-circle class="w-3.5 h-3.5 text-emerald-600" />
@@ -53,7 +53,7 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="py-4 px-6" id="prof-totp-{{ $prof->id }}">
+                                <td class="py-4 px-6" id="prof-totp-{{ $prof->uuid }}">
                                     @if($prof->isTotpEnabled())
                                         <span class="inline-flex items-center gap-1 text-xs font-bold font-heading text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                                             <x-lucide-smartphone class="w-3.5 h-3.5 text-emerald-600" />

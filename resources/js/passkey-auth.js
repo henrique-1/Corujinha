@@ -194,6 +194,14 @@ export function initPasskeyRegister() {
             const res = await fetch(optionsUrl, {
                 headers: { Accept: 'application/json' },
             });
+            if (res.status === 423) {
+                const errData = await res.json().catch(() => ({}));
+                window.location.href = errData.redirect_url || '/seguranca/confirmar';
+                return;
+            }
+            if (!res.ok) {
+                throw new Error('Não foi possível iniciar o registro de Passkey.');
+            }
             const creationOptionsJSON = await res.json();
             const publicKey = PublicKeyCredential.parseCreationOptionsFromJSON(creationOptionsJSON);
 
@@ -245,6 +253,12 @@ export function initPasskeyRegister() {
                     name: name.trim() || 'Minha Passkey',
                 }),
             });
+
+            if (saveRes.status === 423) {
+                const errData = await saveRes.json().catch(() => ({}));
+                window.location.href = errData.redirect_url || '/seguranca/confirmar';
+                return;
+            }
 
             if (!saveRes.ok) {
                 const errData = await saveRes.json().catch(() => ({}));

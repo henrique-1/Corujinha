@@ -149,6 +149,11 @@ test('estudante que seleciona comando e pista e acerta a alternativa tem respost
 
     $saveResponse->assertOk();
 
+    // Conclui etapa de resolução antes da revisão coletiva
+    $this->withSession(['current_attempt_id' => $attempt->id])
+        ->post(route('estudante.concluir_atividade', $this->classroom->code))
+        ->assertRedirect(route('estudante.revisao', $this->classroom->code));
+
     // Finaliza revisão mantendo B
     $finishResponse = $this->withSession(['current_attempt_id' => $attempt->id])
         ->post(route('estudante.concluir_revisao', $this->classroom->code), [
@@ -277,6 +282,8 @@ test('estudante pode alterar ate max_review_changes questoes na revisao coletiva
         'classroom_id' => $this->classroom->id,
         'student_name' => 'Fernanda Limite',
         'started_at' => now(),
+        'completed_at' => now(),
+        'status' => 'submitted',
     ]);
 
     StudentAnswer::create([

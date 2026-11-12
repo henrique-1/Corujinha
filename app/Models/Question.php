@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use App\Services\RichTextSanitizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,9 +12,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Question extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicUuid;
 
     protected $fillable = [
+        'uuid',
         'user_id',
         'focus',
         'area',
@@ -31,6 +33,17 @@ class Question extends Model
         'expected_clues',
         'clue_feedback',
         'correct_option',
+    ];
+
+    protected $hidden = [
+        'id',
+        'user_id',
+        'support_image_path',
+        'correct_option',
+        'expected_commands',
+        'command_feedback',
+        'expected_clues',
+        'clue_feedback',
     ];
 
     protected function casts(): array
@@ -87,7 +100,7 @@ class Question extends Model
         }
 
         return route('midia.questao', [
-            'question' => $this->id,
+            'question' => $this->uuid,
             'v' => $this->updated_at?->timestamp ?? 1,
         ], false);
     }
@@ -128,7 +141,7 @@ class Question extends Model
         $this->loadMissing('options');
 
         return [
-            'id' => $this->id,
+            'id' => $this->uuid,
             'focus' => $this->focus ?? '',
             'support_type' => $this->support_type,
             'support_title' => $this->support_title ?? '',

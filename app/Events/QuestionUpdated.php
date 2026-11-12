@@ -14,24 +14,25 @@ class QuestionUpdated implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     /**
-     * @param  array<int, int>  $classroomIds
+     * @param  array<int, string>  $broadcastKeys
      */
-    public function __construct(public Question $question, public array $classroomIds = [])
+    public function __construct(public Question $question, public array $broadcastKeys = [])
     {
         $this->question->loadMissing('options');
     }
 
     /**
-     * Canais públicos das salas de aula que possuem esta questão vinculada.
+     * Canais não enumeráveis das salas de aula ativas que possuem esta questão vinculada.
      *
      * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
-        return collect($this->classroomIds)
+        return collect($this->broadcastKeys)
+            ->filter(fn ($key) => is_string($key) && $key !== '')
             ->unique()
             ->values()
-            ->map(fn (int $id): Channel => new Channel('classroom.'.$id))
+            ->map(fn (string $key): Channel => new Channel('classroom.player.'.$key))
             ->all();
     }
 

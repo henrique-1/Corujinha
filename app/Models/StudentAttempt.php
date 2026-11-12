@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,9 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StudentAttempt extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPublicUuid;
 
     protected $fillable = [
+        'uuid',
         'classroom_id',
         'student_name',
         'started_at',
@@ -19,6 +21,11 @@ class StudentAttempt extends Model
         'reviewed_at',
         'status',
         'score',
+    ];
+
+    protected $hidden = [
+        'id',
+        'classroom_id',
     ];
 
     protected function casts(): array
@@ -41,12 +48,19 @@ class StudentAttempt extends Model
     }
 
     /**
-     * Recalcula a pontuação da tentativa.
+     * Recalcula a pontuação da tentativa, restrita às questões da avaliação da sala e deduplicada por questão.
      * Se a tentativa já foi revisada, considera is_correct_final; caso contrário, is_correct_initial.
      */
     public function recalculateScore(): int
     {
-        $answers = $this->answers()->get();
+        $this->loadMissing(['classroom.assessment.questions']);
+        $allowedQuestionIds = $this->classroom?->assessment?->questions->pluck('id')->all();
+
+        $answers = $this->answers()
+            ->when(is_array($allowedQuestionIds), fn ($q) => $q->whereIn('question_id', $allowedQuestionIds))
+            ->orderByDesc('id')
+            ->get()
+            ->unique('question_id');
 
         $correct = $answers->filter(function (StudentAnswer $ans) {
             if ($this->status === 'reviewed' || $ans->reviewed_answer !== null) {
@@ -74,7 +88,12 @@ class StudentAttempt extends Model
 
         $pointsMap = $assessment->questions->pluck('pivot.points', 'id');
 
-        return (float) $this->answers->sum(function (StudentAnswer $ans) use ($pointsMap) {
+        $validAnswers = $this->answers
+            ->filter(fn (StudentAnswer $ans) => $pointsMap->has($ans->question_id))
+            ->sortByDesc('id')
+            ->unique('question_id');
+
+        return (float) $validAnswers->sum(function (StudentAnswer $ans) use ($pointsMap) {
             $isCorrect = ($this->status === 'reviewed' || $ans->reviewed_answer !== null)
                 ? (bool) $ans->is_correct_final
                 : (bool) $ans->is_correct_initial;

@@ -24,7 +24,7 @@
         </div>
     </header>
 
-    <main class="max-w-5xl w-full mx-auto px-4 md:px-8 py-8 space-y-8 grow" data-max-review-changes="{{ $maxReviewChanges }}" data-classroom-id="{{ $classroom->id }}">
+    <main class="max-w-5xl w-full mx-auto px-4 md:px-8 py-8 space-y-8 grow" data-max-review-changes="{{ $maxReviewChanges }}" data-broadcast-key="{{ $classroom->broadcast_key }}">
         @if($errors->any())
             <div class="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-sm font-semibold space-y-1">
                 @foreach($errors->all() as $error)
@@ -112,9 +112,9 @@
                             @foreach($q->options as $opt)
                                 <label class="flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/20 cursor-pointer transition has-checked:border-emerald-500 has-checked:bg-emerald-50/40 has-disabled:opacity-50 has-disabled:cursor-not-allowed">
                                     <input type="radio"
-                                           name="reviews[{{ $q->id }}][reviewed_answer]"
+                                           name="reviews[{{ $q->uuid }}][reviewed_answer]"
                                            value="{{ $opt->letter }}"
-                                           data-question-review="{{ $q->id }}"
+                                           data-question-review="{{ $q->uuid }}"
                                            data-initial-answer="{{ $initialLetter }}"
                                            {{ ($ans?->reviewed_answer ?: $initialLetter) === $opt->letter ? 'checked' : '' }}
                                            class="mt-1 text-emerald-600 focus:ring-emerald-500 w-4 h-4">
@@ -129,13 +129,13 @@
 
                     {{-- Campo 4: Justificativa pós-correção coletiva --}}
                     <div class="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-200 space-y-2">
-                        <label for="reflection-{{ $q->id }}" class="text-xs font-bold font-heading text-emerald-950 uppercase tracking-wider block">
+                        <label for="reflection-{{ $q->uuid }}" class="text-xs font-bold font-heading text-emerald-950 uppercase tracking-wider block">
                             4. Meu registro de leitura · Depois da correção coletiva
                         </label>
                         <p class="text-xs text-cloud-burst-700 m-0">
                             Durante a correção coletiva com a professora e a turma: você manteve ou reviu sua resposta? O que aprendeu?
                         </p>
-                        <textarea id="reflection-{{ $q->id }}" name="reviews[{{ $q->id }}][review_reflection]" rows="2"
+                        <textarea id="reflection-{{ $q->uuid }}" name="reviews[{{ $q->uuid }}][review_reflection]" rows="2"
                                   placeholder="Mantive ou revi minha resposta porque..."
                                   class="w-full px-3.5 py-2.5 text-sm bg-white border border-emerald-300 rounded-xl focus:border-emerald-500 focus:outline-none">{{ $ans?->review_reflection }}</textarea>
                     </div>
@@ -175,7 +175,7 @@
             if (!mainEl) return;
 
             const maxChanges = Math.max(1, parseInt(mainEl.dataset.maxReviewChanges || '1', 10));
-            const classroomId = mainEl.dataset.classroomId;
+            const broadcastKey = mainEl.dataset.broadcastKey;
             const counterEl = document.getElementById('review-changes-counter');
             const formEl = document.getElementById('review-form');
             const radios = Array.from(document.querySelectorAll('input[data-question-review]'));
@@ -219,8 +219,8 @@
             });
             syncReviewLimit();
 
-            if (window.Echo && classroomId) {
-                window.Echo.channel(`classroom.${classroomId}`)
+            if (window.Echo && broadcastKey) {
+                window.Echo.channel(`classroom.player.${broadcastKey}`)
                     .listen('.classroom.closed', (e) => {
                         if (formEl) {
                             formEl.querySelectorAll('input, textarea, button').forEach((el) => {

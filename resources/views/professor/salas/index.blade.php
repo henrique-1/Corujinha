@@ -30,7 +30,7 @@
                     </thead>
                     <tbody id="classrooms-table-body" class="divide-y divide-magnolia-100">
                         @forelse($classrooms as $sala)
-                            <tr id="classroom-row-{{ $sala->id }}" class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="classroom-row-{{ $sala->uuid }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-mono font-extrabold text-base text-royal-purple-800">
                                     <span class="px-2.5 py-1 rounded-lg bg-royal-purple-100 border border-royal-purple-200">
                                         {{ $sala->code }}
@@ -65,7 +65,7 @@
                                 <td class="py-4 px-6">
                                     <span class="text-xs font-bold font-heading text-cloud-burst-800 flex items-center gap-1">
                                         <x-lucide-users class="w-3.5 h-3.5 text-royal-purple-800" />
-                                        <span id="classroom-students-count-{{ $sala->id }}">{{ $sala->student_attempts_count }} aluno(s)</span>
+                                        <span id="classroom-students-count-{{ $sala->uuid }}">{{ $sala->student_attempts_count }} aluno(s)</span>
                                     </span>
                                 </td>
                                 <td class="py-4 px-6">
@@ -128,7 +128,7 @@
     @push('scripts')
         <script>
             window.__CLASSROOMS_LIST_CONFIG__ = {
-                userId: {{ auth()->id() }}
+                userId: @json(auth()->user()->uuid)
             };
         </script>
     @endpush

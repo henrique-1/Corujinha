@@ -48,7 +48,7 @@ test('formularios de pergunta nao exibem datalist de area ou turma nem seletor e
 });
 
 test('professor cria pergunta com titulo, texto complexo sanitizado e imagem simultaneamente', function () {
-    Storage::fake('public');
+    Storage::fake('local');
     $professor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
 
     $dirtyHtml = '<p><strong>Negrito</strong>, <em>Itálico</em>, <u>Sublinhado</u>, <s>Taxado</s> e <a href="https://corujinha.edu.br" onclick="alert(1)">Link Seguro</a><script>alert("xss")</script> <a href="javascript:evil()">Link Perigoso</a></p>';
@@ -82,7 +82,7 @@ test('professor cria pergunta com titulo, texto complexo sanitizado e imagem sim
         ->and($question->support_text)->not->toContain('onclick')
         ->and($question->support_text)->not->toContain('javascript:');
 
-    Storage::disk('public')->assertExists($question->support_image_path);
+    Storage::disk('local')->assertExists($question->support_image_path);
 });
 
 test('professor pode criar pergunta sem nenhum apoio e remover imagem ao editar', function () {
@@ -163,7 +163,7 @@ test('destaques do marca-texto funcionam sobre texto complexo sem corromper tags
         'student_name' => 'Ana Souza',
         'started_at' => now(),
         'completed_at' => now(),
-        'status' => 'completed',
+        'status' => 'reviewed',
     ]);
 
     StudentAnswer::create([
