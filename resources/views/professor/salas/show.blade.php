@@ -134,27 +134,24 @@
                 </div>
 
                 {{-- Filtro por Nome de Aluno e Ordenação --}}
-                <form method="GET" action="{{ route('professor.salas.show', $classroom) }}" class="flex items-center flex-wrap gap-2">
+                <form id="student-search-form" method="GET" action="{{ route('professor.salas.show', $classroom) }}" class="flex items-center flex-wrap gap-2">
                     <input type="hidden" name="sort" value="{{ $sort }}">
                     <input type="hidden" name="direction" value="{{ $direction }}">
 
-                    <div class="relative">
-                        <x-lucide-search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-cloud-burst-400" />
-                        <input type="text" name="search" value="{{ $search }}" placeholder="Filtrar por nome de aluno..."
-                               class="pl-9 pr-3 py-2 text-xs border border-royal-purple-200 rounded-xl focus:border-royal-purple-800 focus:outline-none w-56 sm:w-64 bg-royal-purple-50/30 text-cloud-burst-950 placeholder:text-cloud-burst-400">
+                    <div class="relative flex items-center">
+                        <x-lucide-search class="w-4 h-4 absolute left-3 text-cloud-burst-400 pointer-events-none" />
+                        <input id="student-search-input" type="text" name="search" value="{{ $search }}" placeholder="Filtrar por nome de aluno..." autocomplete="off"
+                               class="pl-9 pr-8 py-2 text-xs border border-royal-purple-200 rounded-xl focus:border-royal-purple-800 focus:outline-none w-56 sm:w-64 bg-royal-purple-50/30 text-cloud-burst-950 placeholder:text-cloud-burst-400 transition">
+                        <button id="clear-search-btn" type="button" class="cursor-pointer absolute right-2 text-cloud-burst-400 hover:text-cloud-burst-700 p-0.5 rounded-md transition {{ $search ? '' : 'hidden' }}" title="Limpar filtro">
+                            <x-lucide-x class="w-3.5 h-3.5" />
+                        </button>
                     </div>
 
-                    <button type="submit" class="cursor-pointer px-3.5 py-2 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white text-xs font-bold font-heading transition shadow-2xs">
-                        Filtrar
-                    </button>
-
-                    @if($search)
-                        <a href="{{ route('professor.salas.show', [$classroom, 'sort' => $sort, 'direction' => $direction]) }}"
-                           class="cursor-pointer px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold font-heading transition"
-                           title="Limpar filtro de busca">
-                            Limpar
-                        </a>
-                    @endif
+                    <noscript>
+                        <button type="submit" class="cursor-pointer px-3.5 py-2 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white text-xs font-bold font-heading transition shadow-2xs">
+                            Filtrar
+                        </button>
+                    </noscript>
                 </form>
             </div>
 
@@ -243,8 +240,13 @@
                         </tr>
                     </thead>
                     <tbody id="attempts-table-body" class="divide-y divide-royal-purple-100/60">
+                        <tr id="no-filter-results-row" class="hidden">
+                            <td colspan="7" class="py-8 text-center text-cloud-burst-900/60">
+                                Nenhum aluno encontrado para "<b id="no-results-term"></b>" nesta lista.
+                            </td>
+                        </tr>
                         @forelse($attempts as $att)
-                            <tr id="attempt-row-{{ $att->uuid }}" class="hover:bg-royal-purple-50/30 transition">
+                            <tr id="attempt-row-{{ $att->uuid }}" data-student-row data-student-name="{{ mb_strtolower($att->student_name) }}" class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-bold text-cloud-burst-950">
                                     {{ $att->student_name }}
                                 </td>
@@ -320,6 +322,109 @@
                 totalQuestions: {{ $totalQuestions }},
                 attemptUrlPattern: "{{ route('professor.salas.tentativa', [$classroom, '__ATTEMPT_ID__']) }}"
             };
+
+            // Filtro Dinâmico em Tempo Real por Nome de Aluno (Instantâneo)
+            document.addEventListener('DOMContentLoaded', () => {
+                const searchInput = document.getElementById('student-search-input');
+                const clearBtn = document.getElementById('clear-search-btn');
+                const tbody = document.getElementById('attempts-table-body');
+                const noResultsRow = document.getElementById('no-filter-results-row');
+                const noResultsTerm = document.getElementById('no-results-term');
+                const countEl = document.getElementById('attempts-total-count');
+                const initialTotal = {{ $attempts->total() }};
+                let debounceTimer = null;
+
+                if (!searchInput || !tbody) return;
+
+                function normalize(str) {
+                    return (str || '')
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .trim();
+                }
+
+                function filterRowsLocally() {
+                    const query = normalize(searchInput.value);
+                    const rows = tbody.querySelectorAll('[data-student-row]');
+                    let matchedCount = 0;
+
+                    if (clearBtn) {
+                        clearBtn.classList.toggle('hidden', !searchInput.value.trim());
+                    }
+
+                    rows.forEach((row) => {
+                        const name = normalize(row.getAttribute('data-student-name') || '');
+                        const matches = name.includes(query);
+                        row.style.display = matches ? '' : 'none';
+                        if (matches) matchedCount++;
+                    });
+
+                    if (noResultsRow) {
+                        if (query && matchedCount === 0 && rows.length > 0) {
+                            noResultsRow.classList.remove('hidden');
+                            if (noResultsTerm) noResultsTerm.textContent = searchInput.value;
+                        } else {
+                            noResultsRow.classList.add('hidden');
+                        }
+                    }
+
+                    if (countEl) {
+                        if (query) {
+                            countEl.textContent = `Respostas dos Estudantes (${matchedCount} encontrados)`;
+                        } else {
+                            countEl.textContent = `Respostas dos Estudantes (${initialTotal})`;
+                        }
+                    }
+                }
+
+                // Dispara filtragem instantânea a cada caractere digitado
+                searchInput.addEventListener('input', () => {
+                    filterRowsLocally();
+
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        const url = new URL(window.location.href);
+                        if (searchInput.value.trim()) {
+                            url.searchParams.set('search', searchInput.value.trim());
+                        } else {
+                            url.searchParams.delete('search');
+                        }
+                        url.searchParams.delete('page');
+                        window.history.replaceState({}, '', url.toString());
+
+                        @if($attempts->hasPages() || $attempts->total() > 20)
+                            fetch(url.toString(), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                                .then(res => res.text())
+                                .then(html => {
+                                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                                    const newTbody = doc.getElementById('attempts-table-body');
+                                    if (newTbody) {
+                                        tbody.innerHTML = newTbody.innerHTML;
+                                        filterRowsLocally();
+                                    }
+                                })
+                                .catch(() => {});
+                        @endif
+                    }, 350);
+                });
+
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', () => {
+                        searchInput.value = '';
+                        filterRowsLocally();
+                        searchInput.focus();
+
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('search');
+                        window.history.replaceState({}, '', url.toString());
+                    });
+                }
+
+                if (searchInput.value) {
+                    filterRowsLocally();
+                }
+            });
         </script>
     @endpush
 </x-layouts.admin>
