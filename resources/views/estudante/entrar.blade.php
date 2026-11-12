@@ -31,7 +31,7 @@
                         Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
                     </label>
                     <input id="code" name="code" type="text" required value="{{ old('code', $code) }}"
-                           placeholder="Ex.: AVAL-XXXX" autofocus maxlength="12"
+                           placeholder="Ex.: AVAL-XXXXXX" autofocus maxlength="12"
                            class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
                     <p class="text-[11px] text-cloud-burst-600 mt-1 text-center">Formato com hífen aplicado automaticamente ao digitar.</p>
                 </div>
@@ -87,7 +87,7 @@
 
                     // Aplica máscara automática se tiver pelo menos 4 caracteres (ex: PREFIX-SUFIX)
                     if (val.length > 4) {
-                        val = val.slice(0, 4) + '-' + val.slice(4, 9);
+                        val = val.slice(0, 4) + '-' + val.slice(4, 10);
                     }
                     e.target.value = val;
                 });
