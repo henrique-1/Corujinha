@@ -34,7 +34,7 @@ class ForgotPasswordController extends Controller
             $request->only('email')
         );
 
-        if ($status === Password::RESET_LINK_SENT) {
+        if (in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER], true)) {
             return back()->with('status', 'Enviamos um link de redefinição para o seu e-mail com validade de 30 minutos.');
         }
 

@@ -16,8 +16,8 @@ export function initClassroomMonitor() {
     let currentTotal = monitorData.totalAttempts || 0;
     const totalQuestions = monitorData.totalQuestions || 0;
 
-    // Conecta ao canal público da sala
-    window.Echo.channel(`classroom.${monitorData.classroomId}`)
+    // Conecta ao canal privado de monitoramento da sala
+    window.Echo.private(`classroom.monitor.${monitorData.classroomId}`)
         .listen('.student.joined', (e) => {
             if (!e.attempt) return;
 

@@ -5,6 +5,7 @@ namespace App\Events;
 use App\Models\Classroom;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -18,7 +19,7 @@ class ClassroomListUpdated implements ShouldBroadcastNow
      */
     public function __construct(public Classroom $classroom, public string $action = 'updated')
     {
-        $this->classroom->loadMissing('assessment');
+        $this->classroom->loadMissing(['assessment', 'user']);
     }
 
     /**
@@ -29,7 +30,7 @@ class ClassroomListUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new Channel('professor.'.$this->classroom->user_id),
+            new PrivateChannel('professor.'.$this->classroom->user?->uuid),
         ];
     }
 
@@ -51,7 +52,7 @@ class ClassroomListUpdated implements ShouldBroadcastNow
         return [
             'action' => $this->action,
             'classroom' => [
-                'id' => $this->classroom->id,
+                'id' => $this->classroom->uuid,
                 'name' => $this->classroom->name,
                 'code' => $this->classroom->code,
                 'assessment_title' => $this->classroom->assessment?->title,

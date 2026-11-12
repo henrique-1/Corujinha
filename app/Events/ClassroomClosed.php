@@ -16,14 +16,14 @@ class ClassroomClosed implements ShouldBroadcastNow
     public function __construct(public Classroom $classroom) {}
 
     /**
-     * Canal público da sala de aula para notificar alunos conectados.
+     * Canal não enumerável da sala de aula para notificar alunos conectados.
      *
      * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
         return [
-            new Channel('classroom.'.$this->classroom->id),
+            new Channel('classroom.player.'.$this->classroom->broadcast_key),
         ];
     }
 
@@ -43,7 +43,7 @@ class ClassroomClosed implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
-            'classroom_id' => $this->classroom->id,
+            'classroom_id' => $this->classroom->uuid,
             'code' => $this->classroom->code,
             'redirect_url' => route('estudante.resultado', ['code' => $this->classroom->code], false),
             'message' => 'A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de resultado e devolutiva.',

@@ -39,8 +39,9 @@ class SecurityController extends Controller
         }
 
         $totpUri = $pendingSecret ? $totpService->getOtpAuthUrl($user->name, $user->email, $pendingSecret) : null;
+        $totpQrSvg = $totpUri ? $totpService->generateQrCodeSvg($totpUri) : null;
 
-        return view('auth.security', compact('user', 'credentials', 'pendingSecret', 'totpUri'));
+        return view('auth.security', compact('user', 'credentials', 'pendingSecret', 'totpUri', 'totpQrSvg'));
     }
 
     /**
@@ -60,7 +61,8 @@ class SecurityController extends Controller
             return back()->withErrors(['code' => 'Sessão de configuração expirada. Recarregue a página.']);
         }
 
-        if (! $totpService->verify($pendingSecret, $request->input('code'))) {
+        $matchedSlice = $totpService->verifyAndGetSlice((string) $pendingSecret, (string) $request->input('code'));
+        if ($matchedSlice === null) {
             return back()->withErrors(['code' => 'Código de autenticação incorreto. Verifique o horário do seu celular.']);
         }
 
@@ -68,6 +70,7 @@ class SecurityController extends Controller
         $user->update([
             'totp_secret' => $pendingSecret,
             'totp_enabled_at' => now(),
+            'totp_last_used_slice' => $matchedSlice,
         ]);
 
         session()->forget('totp_pending_secret');
@@ -84,6 +87,7 @@ class SecurityController extends Controller
         $user->update([
             'totp_secret' => null,
             'totp_enabled_at' => null,
+            'totp_last_used_slice' => null,
         ]);
 
         return redirect()->route('security.index')->with('success', 'Autenticação em duas etapas (TOTP) desativada.');
@@ -117,7 +121,7 @@ class SecurityController extends Controller
 
             return response()->json([
                 'success' => true,
-                'id' => $credential->id,
+                'id' => $credential->uuid,
             ]);
         } catch (RuntimeException|\InvalidArgumentException $e) {
             return response()->json([

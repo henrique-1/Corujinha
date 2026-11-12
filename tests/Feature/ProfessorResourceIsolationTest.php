@@ -124,6 +124,6 @@ test('dispara ClassroomListUpdated ao professor criar nova sala de aula', functi
     Event::assertDispatched(ClassroomListUpdated::class, function ($event) use ($professor) {
         return $event->classroom->user_id === $professor->id
             && $event->action === 'created'
-            && $event->broadcastOn()[0]->name === 'professor.'.$professor->id;
+            && $event->broadcastOn()[0]->name === 'private-professor.'.$professor->uuid;
     });
 });

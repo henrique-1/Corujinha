@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ProfessorController as AdminProfessorController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\ConfirmIdentityController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\ResetPasswordController;
@@ -30,10 +31,16 @@ Route::prefix('sala')->name('estudante.')->group(function () {
 
     Route::prefix('{code}')->group(function () {
         Route::get('/atividade', [ClassroomPlayerController::class, 'player'])->name('player');
-        Route::post('/atividade/responder', [ClassroomPlayerController::class, 'saveAnswer'])->name('salvar_resposta');
-        Route::post('/atividade/concluir', [ClassroomPlayerController::class, 'submitAttempt'])->name('concluir_atividade');
+        Route::post('/atividade/responder', [ClassroomPlayerController::class, 'saveAnswer'])
+            ->middleware('throttle:student-answers')
+            ->name('salvar_resposta');
+        Route::post('/atividade/concluir', [ClassroomPlayerController::class, 'submitAttempt'])
+            ->middleware('throttle:student-answers')
+            ->name('concluir_atividade');
         Route::get('/revisao', [ClassroomPlayerController::class, 'showReview'])->name('revisao');
-        Route::post('/revisao/concluir', [ClassroomPlayerController::class, 'finishReview'])->name('concluir_revisao');
+        Route::post('/revisao/concluir', [ClassroomPlayerController::class, 'finishReview'])
+            ->middleware('throttle:student-answers')
+            ->name('concluir_revisao');
         Route::get('/resultado', [ClassroomPlayerController::class, 'showResult'])->name('resultado');
     });
 });
@@ -45,39 +52,64 @@ Route::prefix('sala')->name('estudante.')->group(function () {
 */
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/login/passkey/options', [AuthController::class, 'passkeyLoginOptions'])->name('login.passkey.options');
-    Route::post('/login/passkey', [AuthController::class, 'passkeyLoginVerify'])->name('login.passkey.verify');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/login/passkey/options', [AuthController::class, 'passkeyLoginOptions'])
+        ->middleware('throttle:login')
+        ->name('login.passkey.options');
+    Route::post('/login/passkey', [AuthController::class, 'passkeyLoginVerify'])
+        ->middleware('throttle:login')
+        ->name('login.passkey.verify');
 
     Route::get('/login/totp', [AuthController::class, 'showTotpChallenge'])->name('login.totp');
-    Route::post('/login/totp', [AuthController::class, 'verifyTotp']);
+    Route::post('/login/totp', [AuthController::class, 'verifyTotp'])->middleware('throttle:totp');
 
     Route::get('/cadastro/finalizar/{token}', [InvitationController::class, 'show'])->name('invitation.accept');
-    Route::post('/cadastro/finalizar/{token}', [InvitationController::class, 'accept']);
+    Route::post('/cadastro/finalizar/{token}', [InvitationController::class, 'accept'])->middleware('throttle:password-reset');
 
     // Recuperação de Senha (NIST SP 800-63B-4 / 30 min)
     Route::get('/esqueci-minha-senha', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
-    Route::post('/esqueci-minha-senha', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+    Route::post('/esqueci-minha-senha', [ForgotPasswordController::class, 'sendResetLinkEmail'])
+        ->middleware('throttle:password-reset')
+        ->name('password.email');
     Route::get('/redefinir-senha/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
-    Route::post('/redefinir-senha', [ResetPasswordController::class, 'reset'])->name('password.update');
+    Route::post('/redefinir-senha', [ResetPasswordController::class, 'reset'])
+        ->middleware('throttle:password-reset')
+        ->name('password.update');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
 /*
 |--------------------------------------------------------------------------
-| Segurança e Credenciais (MFA: TOTP e Passkeys)
+| Confirmação de Identidade (Step-up Auth) & Central de Segurança (MFA)
 |--------------------------------------------------------------------------
 */
+Route::middleware(['auth', 'role'])->group(function () {
+    Route::get('/seguranca/confirmar', [ConfirmIdentityController::class, 'show'])->name('password.confirm');
+    Route::post('/seguranca/confirmar', [ConfirmIdentityController::class, 'store'])
+        ->middleware('throttle:totp')
+        ->name('password.confirm.store');
+});
+
 Route::middleware(['auth', 'role'])->prefix('seguranca')->name('security.')->group(function () {
     Route::get('/passkey-sugestao', [SecurityController::class, 'passkeySuggestion'])->name('passkey.suggestion');
     Route::get('/', [SecurityController::class, 'index'])->name('index');
-    Route::post('/totp/enable', [SecurityController::class, 'enableTotp'])->name('totp.enable');
-    Route::post('/totp/disable', [SecurityController::class, 'disableTotp'])->name('totp.disable');
+    Route::post('/totp/enable', [SecurityController::class, 'enableTotp'])
+        ->middleware('throttle:totp')
+        ->name('totp.enable');
+    Route::post('/totp/disable', [SecurityController::class, 'disableTotp'])
+        ->middleware('password.confirm')
+        ->name('totp.disable');
 
-    Route::get('/passkey/options', [SecurityController::class, 'passkeyRegisterOptions'])->name('passkey.options');
-    Route::post('/passkey', [SecurityController::class, 'passkeyRegisterStore'])->name('passkey.store');
-    Route::delete('/passkey/{credential}', [SecurityController::class, 'passkeyDestroy'])->name('passkey.destroy');
+    Route::get('/passkey/options', [SecurityController::class, 'passkeyRegisterOptions'])
+        ->middleware('password.confirm')
+        ->name('passkey.options');
+    Route::post('/passkey', [SecurityController::class, 'passkeyRegisterStore'])
+        ->middleware('password.confirm')
+        ->name('passkey.store');
+    Route::delete('/passkey/{credential}', [SecurityController::class, 'passkeyDestroy'])
+        ->middleware('password.confirm')
+        ->name('passkey.destroy');
 });
 
 /*
@@ -101,10 +133,13 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
 */
 Route::middleware(['auth', 'role:professor'])->prefix('professor')->name('professor.')->group(function () {
     // Banco de Perguntas
-    Route::resource('perguntas', QuestionController::class)->names('perguntas');
+    Route::resource('perguntas', QuestionController::class)
+        ->except(['show'])
+        ->names('perguntas');
 
     // Avaliações
     Route::resource('avaliacoes', AssessmentController::class)
+        ->except(['show'])
         ->names('avaliacoes')
         ->parameters(['avaliacoes' => 'avaliacao']);
     Route::get('/avaliacoes/{avaliacao}/estatisticas', [AssessmentController::class, 'statistics'])->name('avaliacoes.estatisticas');

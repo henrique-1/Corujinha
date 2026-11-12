@@ -49,8 +49,8 @@ test('dispara evento StudentJoinedClassroom ao estudante entrar na sala de aula'
         $channelNames = array_map(fn ($c) => $c->name, $channels);
 
         return $event->attempt->student_name === 'Maria Silva'
-            && in_array('classroom.'.$classroom->id, $channelNames, true)
-            && in_array('professor.'.$professor->id, $channelNames, true);
+            && in_array('private-classroom.monitor.'.$classroom->uuid, $channelNames, true)
+            && in_array('private-professor.'.$professor->uuid, $channelNames, true);
     });
 });
 
@@ -100,7 +100,7 @@ test('dispara evento StudentAttemptUpdated ao salvar resposta do estudante', fun
 
         return $event->attempt->student_name === 'João Souza'
             && count($channels) === 1
-            && $channels[0]->name === 'classroom.'.$classroom->id;
+            && $channels[0]->name === 'private-classroom.monitor.'.$classroom->uuid;
     });
 });
 
@@ -212,9 +212,9 @@ test('dispara evento QuestionUpdated para as salas vinculadas ao editar uma ques
         $payload = $event->broadcastWith();
 
         return $event->broadcastAs() === 'question.updated'
-            && in_array('classroom.'.$classroom1->id, $channels, true)
-            && in_array('classroom.'.$classroom2->id, $channels, true)
-            && $payload['question']['id'] === $question->id
+            && in_array('classroom.player.'.$classroom1->broadcast_key, $channels, true)
+            && in_array('classroom.player.'.$classroom2->broadcast_key, $channels, true)
+            && $payload['question']['id'] === $question->uuid
             && $payload['question']['prompt'] === 'Enunciado atualizado ao vivo'
             && $payload['question']['support_title'] === 'Novo Título'
             && $payload['question']['support_text'] === '<p><strong>Texto</strong> atualizado ao vivo</p>'
@@ -222,7 +222,7 @@ test('dispara evento QuestionUpdated para as salas vinculadas ao editar uma ques
             && $payload['question']['options'][0]['text'] === 'Nova A';
     });
 
-    // Player do estudante expõe classroomId para escutar o canal Reverb
+    // Player do estudante expõe broadcastKey não enumerável para escutar o canal Reverb
     $this->post(route('estudante.iniciar'), [
         'code' => 'LIVE-001',
         'student_name' => 'Pedro Aluno',
@@ -230,5 +230,5 @@ test('dispara evento QuestionUpdated para as salas vinculadas ao editar uma ques
 
     $this->get(route('estudante.player', 'LIVE-001'))
         ->assertOk()
-        ->assertSee("classroomId: {$classroom1->id}", false);
+        ->assertSee("broadcastKey: \"{$classroom1->broadcast_key}\"", false);
 });

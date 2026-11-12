@@ -2,6 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\User;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
+use Illuminate\Support\Facades\DB;
+
 class TotpService
 {
     private const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -25,20 +32,49 @@ class TotpService
      */
     public function verify(string $secret, string $code, int $window = 1): bool
     {
+        return $this->findMatchingSlice($secret, $code, $window) !== null;
+    }
+
+    /**
+     * Retorna o timeSlice correspondente ao código informado se válido, ou null.
+     */
+    public function verifyAndGetSlice(string $secret, string $code, int $window = 1): ?int
+    {
+        return $this->findMatchingSlice($secret, $code, $window);
+    }
+
+    /**
+     * Valida um código TOTP garantindo uso único por janela temporal (proteção anti-replay).
+     */
+    public function verifyOnce(User $user, string $code, int $window = 1): bool
+    {
+        $secret = trim((string) $user->totp_secret);
         $code = trim($code);
-        if (strlen($code) !== 6 || ! ctype_digit($code)) {
+        if ($secret === '' || strlen($code) !== 6 || ! ctype_digit($code)) {
             return false;
         }
 
-        $currentSlice = (int) floor(time() / 30);
-
-        for ($i = -$window; $i <= $window; $i++) {
-            if (hash_equals($this->calculateCode($secret, $currentSlice + $i), $code)) {
-                return true;
+        return DB::transaction(function () use ($user, $code, $window): bool {
+            $lockedUser = User::where('id', $user->id)->lockForUpdate()->first();
+            if (! $lockedUser || ! $lockedUser->isTotpEnabled()) {
+                return false;
             }
-        }
 
-        return false;
+            $matchedSlice = $this->findMatchingSlice((string) $lockedUser->totp_secret, $code, $window);
+            if ($matchedSlice === null) {
+                return false;
+            }
+
+            $lastSlice = (int) ($lockedUser->totp_last_used_slice ?? 0);
+            if ($matchedSlice <= $lastSlice) {
+                return false;
+            }
+
+            $lockedUser->forceFill(['totp_last_used_slice' => $matchedSlice])->save();
+            $user->totp_last_used_slice = $matchedSlice;
+
+            return true;
+        });
     }
 
     /**
@@ -47,9 +83,24 @@ class TotpService
     public function getOtpAuthUrl(string $name, string $email, string $secret): string
     {
         $issuer = rawurlencode('Corujinha');
-        $label = rawurlencode('Corujinha').":{$email}";
+        $label = rawurlencode('Corujinha').':'.rawurlencode($email);
 
         return "otpauth://totp/{$label}?secret={$secret}&issuer={$issuer}&algorithm=SHA1&digits=6&period=30";
+    }
+
+    /**
+     * Renderiza localmente o QR Code em formato SVG inline (sem requisições externas).
+     */
+    public function generateQrCodeSvg(string $otpAuthUri, int $size = 160): string
+    {
+        $renderer = new ImageRenderer(
+            new RendererStyle($size, 1),
+            new SvgImageBackEnd
+        );
+
+        $writer = new Writer($renderer);
+
+        return $writer->writeString($otpAuthUri);
     }
 
     /**
@@ -58,6 +109,10 @@ class TotpService
     public function calculateCode(string $secret, int $timeSlice): string
     {
         $secretKey = $this->base32Decode($secret);
+        if ($secretKey === '') {
+            return '';
+        }
+
         $time = pack('N*', 0).pack('N*', $timeSlice);
         $hash = hash_hmac('sha1', $time, $secretKey, true);
         $offset = ord(substr($hash, -1)) & 0x0F;
@@ -68,6 +123,30 @@ class TotpService
         $pin = $value % 1000000;
 
         return str_pad((string) $pin, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Retorna o timeSlice correspondente ao código informado, ou null caso inválido.
+     */
+    private function findMatchingSlice(string $secret, string $code, int $window = 1): ?int
+    {
+        $secret = trim($secret);
+        $code = trim($code);
+        if ($secret === '' || strlen($code) !== 6 || ! ctype_digit($code)) {
+            return null;
+        }
+
+        $currentSlice = (int) floor(time() / 30);
+
+        for ($i = -$window; $i <= $window; $i++) {
+            $slice = $currentSlice + $i;
+            $calculated = $this->calculateCode($secret, $slice);
+            if ($calculated !== '' && hash_equals($calculated, $code)) {
+                return $slice;
+            }
+        }
+
+        return null;
     }
 
     /**

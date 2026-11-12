@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserRole;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,6 +15,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES', '127.0.0.1'));
+
+        $middleware->trustHosts(
+            at: fn () => array_values(array_filter([
+                parse_url((string) config('app.url'), PHP_URL_HOST),
+                'localhost',
+                '127.0.0.1',
+            ])),
+            subdomains: false
+        );
+
+        $middleware->web(append: [
+            SecurityHeaders::class,
+        ]);
+
         $middleware->redirectUsersTo(function (Request $request) {
             $user = $request->user();
             if ($user?->isSuperAdmin()) {

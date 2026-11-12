@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasPublicUuid, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -20,6 +21,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'uuid',
         'name',
         'email',
         'cpf',
@@ -30,6 +32,7 @@ class User extends Authenticatable
         'invitation_sent_at',
         'totp_secret',
         'totp_enabled_at',
+        'totp_last_used_slice',
         'email_verified_at',
     ];
 
@@ -39,9 +42,11 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $hidden = [
+        'id',
         'password',
         'remember_token',
         'totp_secret',
+        'totp_last_used_slice',
         'invitation_token',
     ];
 
@@ -56,6 +61,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'invitation_sent_at' => 'datetime',
             'totp_enabled_at' => 'datetime',
+            'totp_last_used_slice' => 'integer',
+            'totp_secret' => 'encrypted',
             'password' => 'hashed',
         ];
     }

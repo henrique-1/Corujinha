@@ -38,11 +38,16 @@ class PasskeyService
     }
 
     /**
-     * Retorna o Relying Party ID (domínio) esperado para a requisição.
+     * Retorna o Relying Party ID (domínio canônico configurado em APP_URL).
      */
     public function rpId(Request $request): string
     {
-        return $request->getHost();
+        $configuredHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if (is_string($configuredHost) && $configuredHost !== '') {
+            return strtolower($configuredHost);
+        }
+
+        return strtolower($request->getHost());
     }
 
     /**
@@ -58,7 +63,7 @@ class PasskeyService
         session([
             'webauthn_register_challenge' => $challenge,
             'webauthn_register_rp_id' => $rpId,
-            'webauthn_register_uv' => 'preferred',
+            'webauthn_register_uv' => 'required',
         ]);
 
         $existing = $user->webauthnCredentials()
@@ -70,6 +75,8 @@ class PasskeyService
             ->values()
             ->all();
 
+        $userHandleSource = $user->uuid ?: (string) $user->id;
+
         return [
             'challenge' => $challenge,
             'rp' => [
@@ -77,7 +84,7 @@ class PasskeyService
                 'id' => $rpId,
             ],
             'user' => [
-                'id' => $this->base64UrlEncode((string) $user->id),
+                'id' => $this->base64UrlEncode($userHandleSource),
                 'name' => $user->email,
                 'displayName' => $user->name,
             ],
@@ -91,7 +98,7 @@ class PasskeyService
             'authenticatorSelection' => [
                 'residentKey' => 'required',
                 'requireResidentKey' => true,
-                'userVerification' => 'preferred',
+                'userVerification' => 'required',
             ],
         ];
     }
@@ -112,7 +119,7 @@ class PasskeyService
         }
 
         $clientDataJsonB64 = (string) ($payload['clientDataJSON'] ?? '');
-        $this->verifyClientData($clientDataJsonB64, 'webauthn.create', $expectedChallenge, $expectedRpId, $request);
+        $this->verifyClientData($clientDataJsonB64, 'webauthn.create', $expectedChallenge, $expectedRpId);
 
         $publicKeySpkiB64 = (string) ($payload['publicKeySpki'] ?? '');
         if ($publicKeySpkiB64 === '') {
@@ -147,7 +154,7 @@ class PasskeyService
             'public_key' => $pem,
             'attestation_type' => 'spki:'.$alg,
             'sign_count' => 0,
-            'user_handle' => (string) $user->id,
+            'user_handle' => $user->uuid ?: (string) $user->id,
             'name' => $name !== '' ? mb_substr($name, 0, 100) : 'Minha Passkey',
         ]);
     }
@@ -165,7 +172,7 @@ class PasskeyService
         session([
             'webauthn_login_challenge' => $challenge,
             'webauthn_login_rp_id' => $rpId,
-            'webauthn_login_uv' => 'preferred',
+            'webauthn_login_uv' => 'required',
         ]);
 
         $allowCredentials = [];
@@ -187,7 +194,7 @@ class PasskeyService
             'challenge' => $challenge,
             'rpId' => $rpId,
             'timeout' => 60000,
-            'userVerification' => 'preferred',
+            'userVerification' => 'required',
             'allowCredentials' => $allowCredentials,
         ];
     }
@@ -223,7 +230,7 @@ class PasskeyService
         }
 
         $clientDataJsonB64 = (string) ($payload['clientDataJSON'] ?? '');
-        $clientDataRaw = $this->verifyClientData($clientDataJsonB64, 'webauthn.get', $expectedChallenge, $expectedRpId, $request);
+        $clientDataRaw = $this->verifyClientData($clientDataJsonB64, 'webauthn.get', $expectedChallenge, $expectedRpId);
 
         $authDataRaw = $this->base64UrlDecode((string) ($payload['authenticatorData'] ?? ''));
         $signatureRaw = $this->base64UrlDecode((string) ($payload['signature'] ?? ''));
@@ -238,10 +245,14 @@ class PasskeyService
             throw new RuntimeException('RP ID da Passkey não corresponde a este servidor.');
         }
 
-        // 2. Verifica flag User Present (bit 0 do byte 32)
+        // 2. Verifica flags User Present (bit 0 = 0x01) e User Verified (bit 2 = 0x04)
         $flags = ord($authDataRaw[32]);
         if (($flags & 0x01) === 0) {
             throw new RuntimeException('Presença do usuário não confirmada pelo autenticador.');
+        }
+
+        if (($flags & 0x04) === 0) {
+            throw new RuntimeException('Verificação do usuário (biometria ou PIN) não confirmada pelo autenticador.');
         }
 
         // 3. Verifica assinatura criptográfica (ES256 / RS256 com SHA-256)
@@ -257,10 +268,11 @@ class PasskeyService
         }
 
         // 4. Verifica contador anti-clonagem (bytes 33..36, big-endian uint32)
+        // Se o contador armazenado já é > 0, qualquer regressão (inclusive 0) indica clonagem/anomalia.
         $unpacked = unpack('Ncount', substr($authDataRaw, 33, 4));
         $incomingSignCount = (int) ($unpacked['count'] ?? 0);
 
-        if ($incomingSignCount > 0 && $credential->sign_count > 0 && $incomingSignCount <= $credential->sign_count) {
+        if ($credential->sign_count > 0 && $incomingSignCount <= $credential->sign_count) {
             throw new RuntimeException('Contador de uso da Passkey inválido (possível credencial clonada).');
         }
 
@@ -288,14 +300,13 @@ class PasskeyService
     }
 
     /**
-     * Valida type, challenge e origin dentro de clientDataJSON e devolve os bytes brutos.
+     * Valida type, challenge e origin exato (scheme + host + port) dentro de clientDataJSON e devolve os bytes brutos.
      */
     private function verifyClientData(
         string $clientDataJsonB64,
         string $expectedType,
         string $expectedChallenge,
-        string $expectedRpId,
-        Request $request
+        string $expectedRpId
     ): string {
         $raw = $this->base64UrlDecode($clientDataJsonB64);
         $data = json_decode($raw, true);
@@ -313,17 +324,55 @@ class PasskeyService
         }
 
         $origin = (string) ($data['origin'] ?? '');
-        $originHost = parse_url($origin, PHP_URL_HOST);
-        $allowedHosts = array_filter([
-            $expectedRpId,
-            $request->getHost(),
-            parse_url((string) config('app.url'), PHP_URL_HOST),
-        ]);
+        $normalizedOrigin = $this->normalizeOrigin($origin);
+        $expectedOrigin = $this->expectedOrigin($expectedRpId);
 
-        if (! is_string($originHost) || ! in_array($originHost, $allowedHosts, true)) {
+        if ($normalizedOrigin === null || ! hash_equals($expectedOrigin, $normalizedOrigin)) {
             throw new RuntimeException('Origem da requisição WebAuthn não autorizada.');
         }
 
         return $raw;
+    }
+
+    private function expectedOrigin(string $expectedRpId): string
+    {
+        $appUrl = (string) config('app.url', 'http://localhost');
+        $scheme = strtolower((string) (parse_url($appUrl, PHP_URL_SCHEME) ?: 'http'));
+        $host = strtolower((string) (parse_url($appUrl, PHP_URL_HOST) ?: $expectedRpId));
+        $port = parse_url($appUrl, PHP_URL_PORT);
+
+        $defaultPort = $scheme === 'https' ? 443 : 80;
+        if ($port !== null && (int) $port !== $defaultPort) {
+            return "{$scheme}://{$host}:{$port}";
+        }
+
+        return "{$scheme}://{$host}";
+    }
+
+    private function normalizeOrigin(string $origin): ?string
+    {
+        $parts = parse_url($origin);
+        if (! is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        $scheme = strtolower((string) $parts['scheme']);
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return null;
+        }
+
+        $host = strtolower((string) $parts['host']);
+        if ($host !== 'localhost' && $host !== '127.0.0.1' && $scheme !== 'https' && app()->isProduction()) {
+            return null;
+        }
+
+        $port = $parts['port'] ?? null;
+        $defaultPort = $scheme === 'https' ? 443 : 80;
+
+        if ($port !== null && (int) $port !== $defaultPort) {
+            return "{$scheme}://{$host}:{$port}";
+        }
+
+        return "{$scheme}://{$host}";
     }
 }

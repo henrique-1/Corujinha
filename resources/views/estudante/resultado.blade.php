@@ -131,13 +131,15 @@
                             </span>
                             <div class="flex flex-wrap gap-2">
                                 @foreach($markers as $m)
-                                    @php
-                                        $isCmd = (($m['kind'] ?? '') === 'command');
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold font-heading {{ $isCmd ? 'bg-broom-200 text-broom-950 border border-broom-300' : 'bg-sky-blue-200 text-sky-blue-950 border border-sky-blue-300' }}">
-                                        <span class="w-2 h-2 rounded-full {{ $isCmd ? 'bg-broom-600' : 'bg-sky-blue-600' }}"></span>
-                                        <span>{{ $isCmd ? 'Comando' : 'Pista' }}: "{{ $m['text'] ?? '' }}"</span>
-                                    </span>
+                                    @if(is_array($m) && isset($m['text']) && is_string($m['text']))
+                                        @php
+                                            $isCmd = (($m['kind'] ?? '') === 'command');
+                                        @endphp
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold font-heading {{ $isCmd ? 'bg-broom-200 text-broom-950 border border-broom-300' : 'bg-sky-blue-200 text-sky-blue-950 border border-sky-blue-300' }}">
+                                            <span class="w-2 h-2 rounded-full {{ $isCmd ? 'bg-broom-600' : 'bg-sky-blue-600' }}"></span>
+                                            <span>{{ $isCmd ? 'Comando' : 'Pista' }}: "{{ $m['text'] }}"</span>
+                                        </span>
+                                    @endif
                                 @endforeach
                             </div>
                         </div>

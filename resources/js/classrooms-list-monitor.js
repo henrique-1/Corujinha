@@ -64,7 +64,7 @@ export function initClassroomsListMonitor() {
         `;
     }
 
-    window.Echo.channel(`professor.${config.userId}`)
+    window.Echo.private(`professor.${config.userId}`)
         .listen('.student.joined', (e) => {
             if (!e.attempt || !e.attempt.classroom_id) return;
 

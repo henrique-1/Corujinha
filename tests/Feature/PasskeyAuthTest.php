@@ -34,23 +34,27 @@ test('usuario autenticado registra passkey com validacao de clientDataJSON e cha
     $service = new PasskeyService;
     $keys = generateEcKeypairBase64UrlSpki();
 
-    $optionsRes = $this->actingAs($professor)->getJson(route('security.passkey.options'));
+    $optionsRes = $this->actingAs($professor)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->getJson(route('security.passkey.options'));
     $optionsRes->assertOk()->assertJsonStructure(['challenge', 'rp' => ['id', 'name'], 'user' => ['id']]);
 
     $challenge = $optionsRes->json('challenge');
     $clientData = json_encode([
         'type' => 'webauthn.create',
         'challenge' => $challenge,
-        'origin' => 'http://localhost',
+        'origin' => 'http://localhost:8000',
     ]);
 
-    $storeRes = $this->actingAs($professor)->postJson(route('security.passkey.store'), [
-        'id' => 'cred-id-123',
-        'clientDataJSON' => $service->base64UrlEncode($clientData),
-        'publicKeySpki' => $keys['spkiB64Url'],
-        'publicKeyAlg' => -7,
-        'name' => 'Notebook Trabalho',
-    ]);
+    $storeRes = $this->actingAs($professor)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->postJson(route('security.passkey.store'), [
+            'id' => 'cred-id-123',
+            'clientDataJSON' => $service->base64UrlEncode($clientData),
+            'publicKeySpki' => $keys['spkiB64Url'],
+            'publicKeyAlg' => -7,
+            'name' => 'Notebook Trabalho',
+        ]);
 
     $storeRes->assertOk()->assertJson(['success' => true]);
 
@@ -96,11 +100,11 @@ test('usuario faz login direto com passkey valida sem exigir TOTP', function () 
     $clientDataRaw = json_encode([
         'type' => 'webauthn.get',
         'challenge' => $challenge,
-        'origin' => 'http://localhost',
+        'origin' => 'http://localhost:8000',
     ]);
 
-    // authenticatorData: rpIdHash (32 bytes) + flags (0x01 = UP) + signCount (uint32 BE = 2)
-    $authDataRaw = hash('sha256', $rpId, true).chr(0x01).pack('N', 2);
+    // authenticatorData: rpIdHash (32 bytes) + flags (0x05 = UP + UV) + signCount (uint32 BE = 2)
+    $authDataRaw = hash('sha256', $rpId, true).chr(0x05).pack('N', 2);
     $signedPayload = $authDataRaw.hash('sha256', $clientDataRaw, true);
 
     openssl_sign($signedPayload, $signatureRaw, $keys['privateKey'], OPENSSL_ALGO_SHA256);
@@ -144,9 +148,9 @@ test('login com passkey retorna 404 para credencial desconhecida e rejeita assin
     $clientData1 = json_encode([
         'type' => 'webauthn.get',
         'challenge' => $opt1->json('challenge'),
-        'origin' => 'http://localhost',
+        'origin' => 'http://localhost:8000',
     ]);
-    $authData1 = hash('sha256', $opt1->json('rpId'), true).chr(0x01).pack('N', 1);
+    $authData1 = hash('sha256', $opt1->json('rpId'), true).chr(0x05).pack('N', 1);
 
     $this->postJson(route('login.passkey.verify'), [
         'id' => 'cred-inexistente',
@@ -160,9 +164,9 @@ test('login com passkey retorna 404 para credencial desconhecida e rejeita assin
     $clientData2 = json_encode([
         'type' => 'webauthn.get',
         'challenge' => $opt2->json('challenge'),
-        'origin' => 'http://localhost',
+        'origin' => 'http://localhost:8000',
     ]);
-    $authData2 = hash('sha256', $opt2->json('rpId'), true).chr(0x01).pack('N', 1);
+    $authData2 = hash('sha256', $opt2->json('rpId'), true).chr(0x05).pack('N', 1);
 
     $this->postJson(route('login.passkey.verify'), [
         'id' => 'cred-valida',

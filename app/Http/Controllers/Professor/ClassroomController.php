@@ -13,7 +13,6 @@ use App\Services\BroadcastService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ClassroomController extends Controller
@@ -52,23 +51,49 @@ class ClassroomController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        if (is_string($request->input('code')) && trim($request->input('code')) !== '') {
+            $request->merge(['code' => strtoupper(trim($request->input('code')))]);
+        } else {
+            $request->merge(['code' => Classroom::generateUniqueCode()]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'assessment_id' => [
-                'required',
-                Rule::exists('assessments', 'id')->where('user_id', Auth::id()),
-            ],
+            'assessment_id' => ['required'],
             'code' => ['required', 'string', 'max:20', 'unique:classrooms,code'],
             'collective_review_enabled' => ['nullable', 'boolean'],
         ], [
             'name.required' => 'Informe o nome da turma ou sala.',
             'assessment_id.required' => 'Selecione uma avaliação para esta sala.',
-            'assessment_id.exists' => 'A avaliação selecionada é inválida ou não pertence à sua conta.',
             'code.required' => 'O código da sala é obrigatório.',
             'code.unique' => 'Este código já está em uso em outra sala.',
         ]);
 
-        $assessment = Assessment::withCount('questions')->findOrFail($validated['assessment_id']);
+        $rawAssessmentId = $validated['assessment_id'];
+        if (! is_string($rawAssessmentId) && ! is_int($rawAssessmentId)) {
+            return back()->withInput()->withErrors([
+                'assessment_id' => 'A avaliação selecionada é inválida ou não pertence à sua conta.',
+            ]);
+        }
+
+        $assessment = Assessment::withCount('questions')
+            ->where('user_id', Auth::id())
+            ->where(function ($query) use ($rawAssessmentId) {
+                $idStr = (string) $rawAssessmentId;
+                if (ctype_digit($idStr)) {
+                    $query->where('id', (int) $idStr);
+                } else {
+                    $query->where('uuid', $idStr);
+                }
+            })
+            ->first();
+
+        if (! $assessment) {
+            return back()->withInput()->withErrors([
+                'assessment_id' => 'A avaliação selecionada é inválida ou não pertence à sua conta.',
+            ]);
+        }
+
         $reviewEnabled = $request->boolean('collective_review_enabled', true);
         $maxReviewChanges = $this->resolveValidatedMaxReviewChanges($request, (int) $assessment->questions_count, $reviewEnabled);
 
@@ -98,13 +123,12 @@ class ClassroomController extends Controller
         $this->authorizeClassroom($sala);
 
         $sala->load([
-            'assessment.questions.options',
-            'studentAttempts.answers.question',
+            'assessment' => fn ($query) => $query->withCount('questions'),
         ]);
 
         $attempts = $sala->studentAttempts()->latest()->paginate(20);
 
-        $totalQuestions = $sala->assessment->questions->count();
+        $totalQuestions = (int) ($sala->assessment->questions_count ?? 0);
 
         return view('professor.salas.show', [
             'classroom' => $sala,
@@ -205,7 +229,7 @@ class ClassroomController extends Controller
         ]);
 
         $questions = $sala->assessment->questions;
-        $attempts = $sala->studentAttempts()->orderBy('student_name')->get();
+        $attempts = $sala->studentAttempts->sortBy('student_name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         $questionReports = $questions->map(function ($question) use ($attempts) {
             $correctStudents = [];

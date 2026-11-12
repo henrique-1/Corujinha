@@ -59,10 +59,13 @@
                         </p>
 
                         <div class="bg-royal-purple-50 p-4 rounded-xl border border-royal-purple-100 mb-4 space-y-3">
-                            <div class="text-center">
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data={{ urlencode($totpUri) }}"
-                                     alt="QR Code TOTP" class="mx-auto rounded-lg shadow-xs border border-royal-purple-200 bg-white p-2">
-                            </div>
+                            @if(!empty($totpQrSvg))
+                                <div class="flex justify-center">
+                                    <div class="inline-block rounded-lg shadow-xs border border-royal-purple-200 bg-white p-2" role="img" aria-label="QR Code TOTP">
+                                        {!! $totpQrSvg !!}
+                                    </div>
+                                </div>
+                            @endif
                             <div class="text-center">
                                 <span class="text-[11px] text-cloud-burst-700 block">Chave de configuração manual:</span>
                                 <code class="font-mono text-xs font-bold text-royal-purple-800 tracking-widest break-all select-all">

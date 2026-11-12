@@ -11,7 +11,7 @@ export function initProfessorsMonitor() {
     const tbody = document.getElementById('professores-table-body');
     const emptyRow = document.getElementById('empty-professores-row');
 
-    window.Echo.channel('admin.professores')
+    window.Echo.private('admin.professores')
         .listen('.professores.updated', (e) => {
             if (!e.professor) return;
 

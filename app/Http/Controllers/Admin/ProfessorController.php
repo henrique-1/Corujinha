@@ -102,6 +102,7 @@ class ProfessorController extends Controller
         $professor->update([
             'totp_secret' => null,
             'totp_enabled_at' => null,
+            'totp_last_used_slice' => null,
         ]);
 
         BroadcastService::dispatch(new ProfessorListUpdated($professor, 'updated'));

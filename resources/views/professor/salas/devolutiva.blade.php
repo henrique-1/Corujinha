@@ -66,7 +66,7 @@
                 <div class="flex flex-wrap items-center gap-2 bg-white p-4 rounded-2xl border border-magnolia-200 shadow-xs">
                     <span class="text-xs font-bold font-heading text-cloud-burst-700 uppercase tracking-wider mr-1">Ir para:</span>
                     @foreach($questionReports as $idx => $report)
-                        <a href="#questao-{{ $report['question']->id }}"
+                        <a href="#questao-{{ $report['question']->uuid }}"
                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold font-heading bg-magnolia-50 hover:bg-royal-purple-50 text-cloud-burst-900 hover:text-royal-purple-900 border border-magnolia-200 hover:border-royal-purple-300 transition">
                             <span>Q{{ $idx + 1 }}</span>
                             <span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[11px]">
@@ -87,7 +87,7 @@
                     $correctLetter = trim(strtoupper((string) $q->correct_option));
                 @endphp
 
-                <article id="questao-{{ $q->id }}" class="bg-white rounded-3xl p-6 md:p-8 border border-magnolia-200 shadow-xs space-y-6 scroll-mt-6">
+                <article id="questao-{{ $q->uuid }}" class="bg-white rounded-3xl p-6 md:p-8 border border-magnolia-200 shadow-xs space-y-6 scroll-mt-6">
                     {{-- Cabeçalho da Questão e Totais de Acerto --}}
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-magnolia-200 pb-4">
                         <div class="flex flex-wrap items-center gap-2.5">
