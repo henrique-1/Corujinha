@@ -107,10 +107,13 @@ Route::middleware(['auth', 'role:professor'])->prefix('professor')->name('profes
     Route::resource('avaliacoes', AssessmentController::class)
         ->names('avaliacoes')
         ->parameters(['avaliacoes' => 'avaliacao']);
+    Route::get('/avaliacoes/{avaliacao}/estatisticas', [AssessmentController::class, 'statistics'])->name('avaliacoes.estatisticas');
 
     // Salas de Aula
     Route::resource('salas', ClassroomController::class)->names('salas');
     Route::post('/salas/{sala}/toggle-status', [ClassroomController::class, 'toggleStatus'])->name('salas.toggle_status');
+    Route::post('/salas/{sala}/devolutiva', [ClassroomController::class, 'enterDevolutiva'])->name('salas.devolutiva.enter');
+    Route::get('/salas/{sala}/devolutiva', [ClassroomController::class, 'devolutiva'])->name('salas.devolutiva');
     Route::get('/salas/{sala}/tentativas/{tentativa}', [ClassroomController::class, 'showAttempt'])->name('salas.tentativa');
 });
 

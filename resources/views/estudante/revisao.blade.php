@@ -24,8 +24,36 @@
         </div>
     </header>
 
-    <main class="max-w-5xl w-full mx-auto px-4 md:px-8 py-8 space-y-8 grow">
-        <form action="{{ route('estudante.concluir_revisao', $classroom->code) }}" method="POST" class="space-y-8">
+    <main class="max-w-5xl w-full mx-auto px-4 md:px-8 py-8 space-y-8 grow" data-max-review-changes="{{ $maxReviewChanges }}" data-classroom-id="{{ $classroom->id }}">
+        @if($errors->any())
+            <div class="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-sm font-semibold space-y-1">
+                @foreach($errors->all() as $error)
+                    <p class="m-0">{{ $error }}</p>
+                @endforeach
+            </div>
+        @endif
+
+        @if(session('info'))
+            <div class="p-4 rounded-2xl bg-royal-purple-50 border border-royal-purple-300 text-royal-purple-900 text-sm font-semibold">
+                {{ session('info') }}
+            </div>
+        @endif
+
+        <div class="sticky top-3 z-20 p-4 rounded-2xl bg-white/95 backdrop-blur border border-emerald-300 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 text-sm text-cloud-burst-900">
+                <x-lucide-refresh-cw class="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>
+                    Você pode escrever sua reflexão em todas as questões e alterar a alternativa em até
+                    <strong class="font-extrabold text-emerald-900">{{ $maxReviewChanges }} questão(ões)</strong>.
+                </span>
+            </div>
+            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-extrabold font-heading shrink-0">
+                <span>Alterações:</span>
+                <span><span id="review-changes-counter">0</span> / {{ $maxReviewChanges }}</span>
+            </div>
+        </div>
+
+        <form id="review-form" action="{{ route('estudante.concluir_revisao', $classroom->code) }}" method="POST" class="space-y-8">
             @csrf
 
             @foreach($questions as $idx => $q)
@@ -82,8 +110,12 @@
                         </p>
                         <div class="space-y-2">
                             @foreach($q->options as $opt)
-                                <label class="flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/20 cursor-pointer transition has-checked:border-emerald-500 has-checked:bg-emerald-50/40">
-                                    <input type="radio" name="reviews[{{ $q->id }}][reviewed_answer]" value="{{ $opt->letter }}"
+                                <label class="flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/20 cursor-pointer transition has-checked:border-emerald-500 has-checked:bg-emerald-50/40 has-disabled:opacity-50 has-disabled:cursor-not-allowed">
+                                    <input type="radio"
+                                           name="reviews[{{ $q->id }}][reviewed_answer]"
+                                           value="{{ $opt->letter }}"
+                                           data-question-review="{{ $q->id }}"
+                                           data-initial-answer="{{ $initialLetter }}"
                                            {{ ($ans?->reviewed_answer ?: $initialLetter) === $opt->letter ? 'checked' : '' }}
                                            class="mt-1 text-emerald-600 focus:ring-emerald-500 w-4 h-4">
                                     <div>
@@ -111,11 +143,114 @@
             @endforeach
 
             <div class="text-center pt-4">
-                <button type="submit" class="cursor-pointer px-8 py-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold font-heading text-base shadow-lg hover:shadow-xl transition flex items-center gap-2 mx-auto">
+                <button id="review-submit-btn" type="submit" class="cursor-pointer px-8 py-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold font-heading text-base shadow-lg hover:shadow-xl transition flex items-center gap-2 mx-auto">
                     <span>Revisão Concluída · Ver Meu Resultado e Gabarito</span>
                     <x-lucide-arrow-right class="w-5 h-5" />
                 </button>
             </div>
         </form>
     </main>
+
+    <div id="classroom-closed-modal" role="alertdialog" aria-modal="true" aria-labelledby="closed-modal-title"
+         class="fixed inset-0 z-50 hidden items-center justify-center bg-cloud-burst-950/75 backdrop-blur-xs p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 border border-royal-purple-200 shadow-2xl space-y-4 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-royal-purple-100 text-royal-purple-800 flex items-center justify-center mx-auto">
+                <x-lucide-lock class="w-6 h-6" />
+            </div>
+            <h2 id="closed-modal-title" class="text-xl font-extrabold font-heading text-cloud-burst-950">
+                Avaliação Finalizada
+            </h2>
+            <p id="closed-modal-message" class="text-sm text-cloud-burst-700 leading-relaxed">
+                A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de devolutiva.
+            </p>
+            <a id="closed-modal-link" href="{{ route('estudante.resultado', $classroom->code) }}"
+               class="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm transition">
+                <span>Ir para a Devolutiva Agora</span>
+                <x-lucide-arrow-right class="w-4 h-4" />
+            </a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainEl = document.querySelector('[data-max-review-changes]');
+            if (!mainEl) return;
+
+            const maxChanges = Math.max(1, parseInt(mainEl.dataset.maxReviewChanges || '1', 10));
+            const classroomId = mainEl.dataset.classroomId;
+            const counterEl = document.getElementById('review-changes-counter');
+            const formEl = document.getElementById('review-form');
+            const radios = Array.from(document.querySelectorAll('input[data-question-review]'));
+
+            const questionIds = Array.from(new Set(radios.map((r) => r.dataset.questionReview)));
+
+            function syncReviewLimit() {
+                const changedQuestionIds = new Set();
+
+                questionIds.forEach((qId) => {
+                    const checked = document.querySelector(`input[data-question-review="${qId}"]:checked`);
+                    if (checked) {
+                        const initial = checked.dataset.initialAnswer || '';
+                        if (initial !== '' && checked.value !== initial) {
+                            changedQuestionIds.add(qId);
+                        }
+                    }
+                });
+
+                const count = changedQuestionIds.size;
+                if (counterEl) {
+                    counterEl.textContent = String(count);
+                }
+
+                const quotaReached = count >= maxChanges;
+
+                questionIds.forEach((qId) => {
+                    const isAlreadyChanged = changedQuestionIds.has(qId);
+                    const groupRadios = radios.filter((r) => r.dataset.questionReview === qId);
+
+                    groupRadios.forEach((radio) => {
+                        const initial = radio.dataset.initialAnswer || '';
+                        const shouldLock = quotaReached && !isAlreadyChanged && radio.value !== initial;
+                        radio.disabled = shouldLock;
+                    });
+                });
+            }
+
+            radios.forEach((radio) => {
+                radio.addEventListener('change', syncReviewLimit);
+            });
+            syncReviewLimit();
+
+            if (window.Echo && classroomId) {
+                window.Echo.channel(`classroom.${classroomId}`)
+                    .listen('.classroom.closed', (e) => {
+                        if (formEl) {
+                            formEl.querySelectorAll('input, textarea, button').forEach((el) => {
+                                el.disabled = true;
+                            });
+                        }
+
+                        const modal = document.getElementById('classroom-closed-modal');
+                        const msgEl = document.getElementById('closed-modal-message');
+                        const linkEl = document.getElementById('closed-modal-link');
+                        const redirectUrl = e?.redirect_url || @json(route('estudante.resultado', $classroom->code));
+
+                        if (msgEl && e?.message) {
+                            msgEl.textContent = e.message;
+                        }
+                        if (linkEl) {
+                            linkEl.href = redirectUrl;
+                        }
+                        if (modal) {
+                            modal.classList.remove('hidden');
+                            modal.classList.add('flex');
+                        }
+
+                        setTimeout(() => {
+                            window.location.href = redirectUrl;
+                        }, 2000);
+                    });
+            }
+        });
+    </script>
 </x-layouts.app>

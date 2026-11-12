@@ -36,14 +36,23 @@
                                     @endif
                                 </td>
                                 <td class="py-4 px-6">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-800 border border-royal-purple-200">
-                                        {{ $item->questions_count }} questão(ões)
-                                    </span>
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-800 border border-royal-purple-200">
+                                            {{ $item->questions_count }} questão(ões)
+                                        </span>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-heading bg-magnolia-100 text-cloud-burst-800 border border-magnolia-200">
+                                            {{ $item->classrooms_count }} sala(s)
+                                        </span>
+                                    </div>
                                 </td>
                                 <td class="py-4 px-6 text-cloud-burst-600 text-xs">
                                     {{ $item->created_at->format('d/m/Y') }}
                                 </td>
-                                <td class="py-4 px-6 text-right space-x-2">
+                                <td class="py-4 px-6 text-right space-x-2 whitespace-nowrap">
+                                    <a href="{{ route('professor.avaliacoes.estatisticas', $item) }}" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-emerald-800 hover:underline bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition">
+                                        <x-lucide-bar-chart-3 class="w-3.5 h-3.5" />
+                                        <span>Gráficos</span>
+                                    </a>
                                     <a href="{{ route('professor.avaliacoes.edit', $item) }}" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-royal-purple-800 hover:underline bg-royal-purple-50 hover:bg-royal-purple-100 px-3 py-1.5 rounded-lg border border-royal-purple-200 transition">
                                         <x-lucide-edit class="w-3.5 h-3.5" />
                                         <span>Editar</span>

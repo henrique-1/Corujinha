@@ -18,6 +18,7 @@ class Classroom extends Model
         'name',
         'code',
         'collective_review_enabled',
+        'max_review_changes',
         'is_active',
     ];
 
@@ -25,6 +26,7 @@ class Classroom extends Model
     {
         return [
             'collective_review_enabled' => 'boolean',
+            'max_review_changes' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -42,6 +44,35 @@ class Classroom extends Model
     public function studentAttempts(): HasMany
     {
         return $this->hasMany(StudentAttempt::class);
+    }
+
+    /**
+     * Retorna o número efetivo de questões que o aluno pode alterar na Revisão Coletiva.
+     */
+    public function effectiveMaxReviewChanges(): int
+    {
+        $this->loadMissing('assessment.questions');
+        $total = max(1, $this->assessment?->questions->count() ?? 1);
+
+        if ($this->max_review_changes === null) {
+            return $total;
+        }
+
+        return max(1, min($this->max_review_changes, $total));
+    }
+
+    /**
+     * Fecha definitivamente a sala de aula para novas respostas.
+     */
+    public function close(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        $this->update(['is_active' => false]);
+
+        return true;
     }
 
     /**

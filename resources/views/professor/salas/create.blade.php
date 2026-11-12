@@ -40,10 +40,10 @@
                     @else
                         <select id="assessment_id" name="assessment_id" required
                                 class="w-full px-4 py-3 text-sm border border-royal-purple-200 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-200 focus:outline-none bg-white transition">
-                            <option value="">Selecione uma avaliação...</option>
+                            <option value="" data-questions-count="0">Selecione uma avaliação...</option>
                             @foreach($assessments as $av)
-                                <option value="{{ $av->id }}" {{ old('assessment_id') == $av->id ? 'selected' : '' }}>
-                                    {{ $av->title }} ({{ $av->questions->count() }} questões)
+                                <option value="{{ $av->id }}" data-questions-count="{{ $av->questions_count }}" {{ old('assessment_id') == $av->id ? 'selected' : '' }}>
+                                    {{ $av->title }} ({{ $av->questions_count }} questões)
                                 </option>
                             @endforeach
                         </select>
@@ -63,10 +63,10 @@
                     <p class="text-[11px] text-cloud-burst-900/60 mt-1">Este código exclusivo é gerado pelo sistema para garantir segurança e unicidade.</p>
                 </div>
 
-                {{-- Toggle de Revisão e Correção Coletiva --}}
-                <div class="pt-2 border-t border-royal-purple-100">
+                {{-- Toggle de Revisão e Correção Coletiva + Limite de Alterações --}}
+                <div class="pt-2 border-t border-royal-purple-100 space-y-3">
                     <label class="flex items-start gap-3 p-4 rounded-xl border border-royal-purple-200 bg-royal-purple-50/40 hover:bg-royal-purple-50 cursor-pointer transition">
-                        <input type="checkbox" name="collective_review_enabled" value="1" {{ old('collective_review_enabled', '1') ? 'checked' : '' }}
+                        <input id="collective_review_enabled" type="checkbox" name="collective_review_enabled" value="1" {{ old('collective_review_enabled', '1') ? 'checked' : '' }}
                                class="mt-1 rounded text-royal-purple-800 focus:ring-royal-purple-800 w-4 h-4">
                         <div>
                             <span class="text-sm font-bold text-cloud-burst-950 block font-heading">Ativar Etapa de "Revisão e Correção Coletiva"</span>
@@ -78,6 +78,20 @@
                             </p>
                         </div>
                     </label>
+
+                    <div id="review-limit-wrapper" class="p-4 rounded-xl border border-magnolia-200 bg-magnolia-50/60 space-y-2">
+                        <label for="max_review_changes" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider">
+                            Quantas questões o aluno poderá alterar na Revisão Coletiva? <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <input id="max_review_changes" name="max_review_changes" type="number" min="1"
+                                   value="{{ old('max_review_changes', 1) }}"
+                                   class="w-32 px-3.5 py-2 text-sm font-mono font-bold text-center border border-royal-purple-200 rounded-xl bg-white focus:border-royal-purple-800 focus:outline-none">
+                            <span id="review-limit-hint" class="text-xs text-cloud-burst-700">
+                                Defina de <b>1</b> até o total de questões da avaliação selecionada.
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-4">
@@ -92,4 +106,50 @@
             </div>
         </form>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const reviewToggle = document.getElementById('collective_review_enabled');
+                const assessmentSelect = document.getElementById('assessment_id');
+                const limitWrapper = document.getElementById('review-limit-wrapper');
+                const limitInput = document.getElementById('max_review_changes');
+                const limitHint = document.getElementById('review-limit-hint');
+                const hasOldValue = @json(old('max_review_changes') !== null);
+
+                function syncReviewLimitState(updateDefaultValue = false) {
+                    const enabled = Boolean(reviewToggle?.checked);
+                    if (limitWrapper) {
+                        limitWrapper.classList.toggle('hidden', !enabled);
+                    }
+                    if (!limitInput) return;
+
+                    limitInput.disabled = !enabled;
+                    limitInput.required = enabled;
+
+                    const selectedOpt = assessmentSelect?.selectedOptions?.[0];
+                    const qCount = parseInt(selectedOpt?.dataset?.questionsCount || '0', 10);
+
+                    if (qCount > 0) {
+                        limitInput.max = String(qCount);
+                        if (updateDefaultValue || parseInt(limitInput.value || '0', 10) > qCount) {
+                            limitInput.value = String(qCount);
+                        }
+                        if (limitHint) {
+                            limitHint.innerHTML = `Escolha entre <b>1</b> e <b>${qCount}</b> questão(ões) cadastrada(s) nesta avaliação.`;
+                        }
+                    } else {
+                        limitInput.removeAttribute('max');
+                        if (limitHint) {
+                            limitHint.innerHTML = 'Selecione uma avaliação para definir entre <b>1</b> e o total de questões.';
+                        }
+                    }
+                }
+
+                reviewToggle?.addEventListener('change', () => syncReviewLimitState(false));
+                assessmentSelect?.addEventListener('change', () => syncReviewLimitState(true));
+                syncReviewLimitState(!hasOldValue);
+            });
+        </script>
+    @endpush
 </x-layouts.admin>

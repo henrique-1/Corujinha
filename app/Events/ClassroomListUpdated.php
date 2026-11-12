@@ -56,6 +56,8 @@ class ClassroomListUpdated implements ShouldBroadcastNow
                 'code' => $this->classroom->code,
                 'assessment_title' => $this->classroom->assessment?->title,
                 'collective_review_enabled' => $this->classroom->collective_review_enabled,
+                'max_review_changes' => $this->classroom->max_review_changes,
+                'effective_max_review_changes' => $this->classroom->effectiveMaxReviewChanges(),
                 'is_active' => $this->classroom->is_active,
                 'student_attempts_count' => $this->classroom->studentAttempts()->count(),
             ],

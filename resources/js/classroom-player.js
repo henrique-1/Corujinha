@@ -580,7 +580,11 @@ export function initClassroomPlayer() {
             });
 
             if (!res.ok) {
-                const errData = await res.json();
+                const errData = await res.json().catch(() => ({}));
+                if (errData.closed && errData.redirect_url) {
+                    handleClassroomClosed(errData.error, errData.redirect_url);
+                    return false;
+                }
                 toast(errData.error || 'Erro ao registrar resposta.');
                 return false;
             }
@@ -694,7 +698,11 @@ export function initClassroomPlayer() {
                         'X-CSRF-TOKEN': csrfToken
                     }
                 });
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
+                if (data.closed && data.redirect_url) {
+                    handleClassroomClosed(data.error, data.redirect_url);
+                    return;
+                }
                 if (data.redirect_url) {
                     window.location.href = data.redirect_url;
                 }
@@ -704,7 +712,60 @@ export function initClassroomPlayer() {
         }
     });
 
-    // Atualização em tempo real de questões editadas pelo professor via Laravel Reverb
+    let isClassroomClosed = false;
+
+    function handleClassroomClosed(message, redirectUrl) {
+        if (isClassroomClosed) return;
+        isClassroomClosed = true;
+
+        if (timerId) {
+            clearInterval(timerId);
+            timerId = null;
+        }
+
+        ['previous', 'next', 'finish', 'clear-all'].forEach((id) => {
+            const btn = $(id);
+            if (btn) btn.disabled = true;
+        });
+
+        document.querySelectorAll('#options-container input, #reason-input').forEach((el) => {
+            el.disabled = true;
+        });
+
+        const finalMessage = message || 'A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de devolutiva.';
+        const targetUrl = redirectUrl || `/sala/${config.code}/resultado`;
+
+        const overlay = document.createElement('div');
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-cloud-burst-950/75 backdrop-blur-xs p-4';
+
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-3xl max-w-md w-full p-6 md:p-8 border border-royal-purple-200 shadow-2xl space-y-4 text-center';
+
+        const title = document.createElement('h2');
+        title.className = 'text-xl font-extrabold font-heading text-cloud-burst-950';
+        title.textContent = 'Avaliação Finalizada';
+
+        const desc = document.createElement('p');
+        desc.className = 'text-sm text-cloud-burst-700 leading-relaxed';
+        desc.textContent = finalMessage;
+
+        const cta = document.createElement('a');
+        cta.href = targetUrl;
+        cta.className = 'inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm transition';
+        cta.textContent = 'Ir para a Devolutiva Agora';
+
+        card.append(title, desc, cta);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        setTimeout(() => {
+            window.location.href = targetUrl;
+        }, 2000);
+    }
+
+    // Atualização em tempo real de questões editadas e encerramento da sala via Laravel Reverb
     if (window.Echo && config.classroomId) {
         window.Echo.channel(`classroom.${config.classroomId}`)
             .listen('.question.updated', (e) => {
@@ -746,6 +807,9 @@ export function initClassroomPlayer() {
                 } else {
                     toast(`A Questão ${qIndex + 1} foi atualizada pelo professor.`);
                 }
+            })
+            .listen('.classroom.closed', (e) => {
+                handleClassroomClosed(e?.message, e?.redirect_url);
             });
     }
 

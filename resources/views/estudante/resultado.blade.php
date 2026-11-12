@@ -29,6 +29,12 @@
     </header>
 
     <main class="max-w-5xl w-full mx-auto px-4 md:px-8 py-8 space-y-8 grow">
+        @if(session('info'))
+            <div class="p-4 rounded-2xl bg-royal-purple-50 border border-royal-purple-300 text-royal-purple-900 text-sm font-semibold">
+                {{ session('info') }}
+            </div>
+        @endif
+
         <div class="space-y-6">
             @foreach($questions as $idx => $q)
                 @php
