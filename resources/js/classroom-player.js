@@ -93,6 +93,21 @@ export function initClassroomPlayer() {
         const elapsed = $('elapsed');
         const timerStatus = $('timer-status');
 
+        if (config.isTeacherPreview) {
+            if (clock) {
+                clock.textContent = formatTime(s.timeLimit);
+                clock.className = 'text-5xl font-bold font-mono tracking-tight text-[#38215f] leading-none my-2 transition-colors';
+            }
+            if (timerStatus) {
+                timerStatus.textContent = 'Modo de Visualização do Professor (Avanço Livre)';
+                timerStatus.className = 'block text-xs text-amber-700 font-semibold mb-2';
+            }
+            if (elapsed) {
+                elapsed.textContent = `Tempo limite configurado: ${formatElapsed(s.timeLimit)}`;
+            }
+            return;
+        }
+
         if (clock) {
             clock.textContent = formatTime(r);
             if (r <= 30000) {
@@ -136,7 +151,7 @@ export function initClassroomPlayer() {
 
             if (i === idx) {
                 btn.className += 'bg-brand-purple text-white shadow-md ring-2 ring-purple-300';
-            } else if (s.done) {
+            } else if (config.isTeacherPreview || s.done) {
                 btn.className += 'bg-emerald-100 text-emerald-900 border border-emerald-300';
             } else {
                 btn.className += 'bg-white text-gray-700 border border-gray-200 hover:border-brand-purple';
@@ -507,7 +522,11 @@ export function initClassroomPlayer() {
         // Botão Concluir
         const finishText = $('finish-text');
         if (finishText) {
-            finishText.textContent = (idx === DATA.length - 1) ? 'Concluir Avaliação' : 'Concluir e Ir para a Próxima Questão';
+            if (config.isTeacherPreview) {
+                finishText.textContent = (idx === DATA.length - 1) ? 'Finalizar Visualização' : 'Próxima Questão';
+            } else {
+                finishText.textContent = (idx === DATA.length - 1) ? 'Concluir Avaliação' : 'Concluir e Ir para a Próxima Questão';
+            }
         }
 
         const prevBtn = $('previous');
@@ -522,6 +541,10 @@ export function initClassroomPlayer() {
 
     // Submissão da Questão ao Backend via Fetch API
     async function submitCurrentQuestion() {
+        if (config.isTeacherPreview) {
+            return true;
+        }
+
         const q = DATA[idx];
         const s = state();
 
@@ -690,6 +713,24 @@ export function initClassroomPlayer() {
     $('next')?.addEventListener('click', () => navigate(idx + 1));
 
     $('finish')?.addEventListener('click', async () => {
+        if (config.isTeacherPreview) {
+            if (idx < DATA.length - 1) {
+                navigate(idx + 1);
+            } else {
+                const confirmed = await openConfirmDialog({
+                    title: 'Finalizar Visualização',
+                    message: 'Você navegou por todas as questões da prova. Deseja retornar ao painel da sala?',
+                    confirmText: 'Voltar ao Painel da Sala',
+                    cancelText: 'Continuar na Prova',
+                    tone: 'primary',
+                });
+                if (confirmed) {
+                    window.location.href = config.backUrl || '/professor/salas';
+                }
+            }
+            return;
+        }
+
         const ok = await submitCurrentQuestion();
         if (!ok) return;
 
@@ -819,13 +860,18 @@ export function initClassroomPlayer() {
             });
     }
 
-    // Inicia cronômetro contínuo
-    const firstState = state();
-    if (!firstState.started && !firstState.done) {
-        firstState.started = true;
-        firstState.deadline = Date.now() + firstState.remaining;
+    // Inicia cronômetro contínuo (somente no modo estudante)
+    if (!config.isTeacherPreview) {
+        const firstState = state();
+        if (!firstState.started && !firstState.done) {
+            firstState.started = true;
+            firstState.deadline = Date.now() + firstState.remaining;
+        }
+
+        timerId = setInterval(tick, 250);
+    } else {
+        tick();
     }
 
-    timerId = setInterval(tick, 250);
     render();
 }

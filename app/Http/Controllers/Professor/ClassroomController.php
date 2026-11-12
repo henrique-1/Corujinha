@@ -7,6 +7,7 @@ use App\Events\ClassroomListUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\Classroom;
+use App\Models\Question;
 use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
 use App\Services\BroadcastService;
@@ -118,7 +119,7 @@ class ClassroomController extends Controller
     /**
      * Painel e relatório da sala de aula com os resultados dos alunos.
      */
-    public function show(Classroom $sala): View
+    public function show(Request $request, Classroom $sala): View
     {
         $this->authorizeClassroom($sala);
 
@@ -126,7 +127,34 @@ class ClassroomController extends Controller
             'assessment' => fn ($query) => $query->withCount('questions'),
         ]);
 
-        $attempts = $sala->studentAttempts()->latest()->paginate(20);
+        $search = trim((string) $request->input('search', ''));
+        $sort = strtolower(trim((string) $request->input('sort', 'inicio')));
+        $allowedSorts = ['inicio', 'nome', 'status', 'conclusao', 'acertos'];
+        if (! in_array($sort, $allowedSorts, true)) {
+            $sort = 'inicio';
+        }
+
+        $defaultDirection = ($sort === 'inicio') ? 'desc' : 'asc';
+        $direction = strtolower(trim((string) $request->input('direction', $defaultDirection)));
+        if (! in_array($direction, ['asc', 'desc'], true)) {
+            $direction = $defaultDirection;
+        }
+
+        $query = $sala->studentAttempts();
+
+        if ($search !== '') {
+            $query->where('student_name', 'like', "%{$search}%");
+        }
+
+        match ($sort) {
+            'nome' => $query->orderBy('student_name', $direction)->orderBy('id', 'desc'),
+            'status' => $query->orderBy('status', $direction)->orderBy('id', 'desc'),
+            'conclusao' => $query->orderByRaw("COALESCE(reviewed_at, completed_at) {$direction}")->orderBy('id', 'desc'),
+            'acertos' => $query->orderBy('score', $direction)->orderBy('id', 'desc'),
+            default => $query->orderBy('started_at', $direction)->orderBy('id', $direction),
+        };
+
+        $attempts = $query->paginate(20)->withQueryString();
 
         $totalQuestions = (int) ($sala->assessment->questions_count ?? 0);
 
@@ -134,6 +162,38 @@ class ClassroomController extends Controller
             'classroom' => $sala,
             'attempts' => $attempts,
             'totalQuestions' => $totalQuestions,
+            'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
+        ]);
+    }
+
+    /**
+     * Visualização da avaliação pelo professor no mesmo formato do player do estudante.
+     */
+    public function previewAssessment(Classroom $sala): View
+    {
+        $this->authorizeClassroom($sala);
+
+        $sala->load([
+            'assessment.questions.options',
+        ]);
+
+        $questions = $sala->assessment?->questions ?? collect();
+
+        $questionsData = $questions->map(function (Question $q, $idx) {
+            return array_merge($q->toPlayerPayload(), [
+                'index' => $idx + 1,
+                'points' => (float) ($q->pivot->points ?? 1.0),
+                'saved' => null,
+            ]);
+        })->values()->all();
+
+        return view('estudante.player', [
+            'classroom' => $sala,
+            'attempt' => null,
+            'isTeacherPreview' => true,
+            'questionsData' => $questionsData,
         ]);
     }
 

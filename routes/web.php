@@ -28,6 +28,7 @@ Route::get('/midia/questoes/{question}', [QuestionController::class, 'showSuppor
 Route::prefix('sala')->name('estudante.')->group(function () {
     Route::get('/', [ClassroomPlayerController::class, 'showEnter'])->name('entrar');
     Route::post('/iniciar', [ClassroomPlayerController::class, 'start'])->name('iniciar');
+    Route::post('/retomar', [ClassroomPlayerController::class, 'resume'])->name('retomar');
 
     Route::prefix('{code}')->group(function () {
         Route::get('/atividade', [ClassroomPlayerController::class, 'player'])->name('player');
@@ -150,6 +151,7 @@ Route::middleware(['auth', 'role:professor'])->prefix('professor')->name('profes
     Route::post('/salas/{sala}/devolutiva', [ClassroomController::class, 'enterDevolutiva'])->name('salas.devolutiva.enter');
     Route::get('/salas/{sala}/devolutiva', [ClassroomController::class, 'devolutiva'])->name('salas.devolutiva');
     Route::get('/salas/{sala}/tentativas/{tentativa}', [ClassroomController::class, 'showAttempt'])->name('salas.tentativa');
+    Route::get('/salas/{sala}/visualizar-prova', [ClassroomController::class, 'previewAssessment'])->name('salas.preview');
 });
 
 /*

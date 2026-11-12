@@ -56,6 +56,7 @@ class StudentJoinedClassroom implements ShouldBroadcastNow
                 'classroom_id' => $this->attempt->classroom?->uuid,
                 'student_name' => $this->attempt->student_name,
                 'status' => $this->attempt->status,
+                'access_code' => $this->attempt->access_code,
                 'started_at' => $this->attempt->started_at->format('d/m/Y H:i'),
                 'score' => $this->attempt->score,
             ],
