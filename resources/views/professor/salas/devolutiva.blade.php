@@ -254,67 +254,97 @@
                         </div>
                     </div>
 
-                    {{-- Listas Nominais: Quem Acertou e Quem Errou --}}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        <div class="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-xs font-extrabold font-heading text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                                    <x-lucide-check-circle class="w-4 h-4 text-emerald-700" />
-                                    <span>Acertaram ({{ $report['correctCount'] }})</span>
-                                </h3>
-                            </div>
-                            @if(!empty($report['correctStudents']))
-                                <ul class="flex flex-wrap gap-1.5">
-                                    @foreach($report['correctStudents'] as $st)
-                                        <li class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-xs font-semibold text-emerald-950">
-                                            <span>{{ $st['name'] }}</span>
-                                            @if($classroom->collective_review_enabled && $st['changed'])
-                                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-blue-100 text-sky-blue-900" title="Alterou na revisão">
-                                                    {{ $st['initial'] }}→{{ $st['final'] }}
-                                                </span>
-                                            @endif
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <p class="text-xs text-emerald-800/70 italic">Nenhum aluno acertou esta questão.</p>
-                            @endif
-                        </div>
+                    {{-- Listas Nominais: Quem Acertou e Quem Errou (Recolhidas por padrão) --}}
+                    <div class="pt-2 space-y-3">
+                        <button type="button"
+                                data-toggle-students="{{ $idx }}"
+                                aria-expanded="false"
+                                aria-controls="devolutiva-alunos-{{ $idx }}"
+                                class="w-full cursor-pointer flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-2xl border border-magnolia-200 bg-magnolia-50/70 hover:bg-magnolia-100/80 text-left transition">
+                            <span class="flex flex-wrap items-center gap-2 text-xs font-extrabold font-heading text-cloud-burst-900 uppercase tracking-wider">
+                                <x-lucide-users class="w-4 h-4 text-royal-purple-800 shrink-0" />
+                                <span>Desempenho dos Alunos</span>
+                                <span class="font-bold normal-case px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                    {{ $report['correctCount'] }} acerto(s)
+                                </span>
+                                <span class="font-bold normal-case px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                                    {{ $report['wrongCount'] }} erro(s)
+                                </span>
+                                @if($report['unansweredCount'] > 0)
+                                    <span class="font-bold normal-case px-2 py-0.5 rounded-full bg-gray-200 text-gray-800">
+                                        {{ $report['unansweredCount'] }} sem resposta
+                                    </span>
+                                @endif
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold font-heading text-royal-purple-800">
+                                <span data-toggle-label>Mostrar lista</span>
+                                <x-lucide-chevron-down class="w-4 h-4 transition-transform duration-200" data-toggle-chevron />
+                            </span>
+                        </button>
 
-                        <div class="p-4 rounded-2xl border border-rose-200 bg-rose-50/40 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-xs font-extrabold font-heading text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
-                                    <x-lucide-x-circle class="w-4 h-4 text-rose-700" />
-                                    <span>Erraram ({{ $report['wrongCount'] }})</span>
-                                </h3>
+                        <div id="devolutiva-alunos-{{ $idx }}" class="hidden space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-xs font-extrabold font-heading text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <x-lucide-check-circle class="w-4 h-4 text-emerald-700" />
+                                            <span>Acertaram ({{ $report['correctCount'] }})</span>
+                                        </h3>
+                                    </div>
+                                    @if(!empty($report['correctStudents']))
+                                        <ul class="flex flex-wrap gap-1.5">
+                                            @foreach($report['correctStudents'] as $st)
+                                                <li class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-xs font-semibold text-emerald-950">
+                                                    <span>{{ $st['name'] }}</span>
+                                                    @if($classroom->collective_review_enabled && $st['changed'])
+                                                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-blue-100 text-sky-blue-900" title="Alterou na revisão">
+                                                            {{ $st['initial'] }}→{{ $st['final'] }}
+                                                        </span>
+                                                    @endif
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        <p class="text-xs text-emerald-800/70 italic">Nenhum aluno acertou esta questão.</p>
+                                    @endif
+                                </div>
+
+                                <div class="p-4 rounded-2xl border border-rose-200 bg-rose-50/40 space-y-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-xs font-extrabold font-heading text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <x-lucide-x-circle class="w-4 h-4 text-rose-700" />
+                                            <span>Erraram ({{ $report['wrongCount'] }})</span>
+                                        </h3>
+                                    </div>
+                                    @if(!empty($report['wrongStudents']))
+                                        <ul class="flex flex-wrap gap-1.5">
+                                            @foreach($report['wrongStudents'] as $st)
+                                                <li class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-xs font-semibold text-rose-950">
+                                                    <span>{{ $st['name'] }}</span>
+                                                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">
+                                                        @if($classroom->collective_review_enabled && $st['changed'])
+                                                            {{ $st['initial'] }}→{{ $st['final'] }}
+                                                        @else
+                                                            {{ $st['final'] }}
+                                                        @endif
+                                                    </span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        <p class="text-xs text-rose-800/70 italic">Nenhum aluno errou esta questão.</p>
+                                    @endif
+                                </div>
                             </div>
-                            @if(!empty($report['wrongStudents']))
-                                <ul class="flex flex-wrap gap-1.5">
-                                    @foreach($report['wrongStudents'] as $st)
-                                        <li class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-xs font-semibold text-rose-950">
-                                            <span>{{ $st['name'] }}</span>
-                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">
-                                                @if($classroom->collective_review_enabled && $st['changed'])
-                                                    {{ $st['initial'] }}→{{ $st['final'] }}
-                                                @else
-                                                    {{ $st['final'] }}
-                                                @endif
-                                            </span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <p class="text-xs text-rose-800/70 italic">Nenhum aluno errou esta questão.</p>
+
+                            @if(!empty($report['unansweredStudents']))
+                                <div class="px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-700">
+                                    <span class="font-bold font-heading">Sem resposta registrada:</span>
+                                    {{ implode(', ', $report['unansweredStudents']) }}
+                                </div>
                             @endif
                         </div>
                     </div>
-
-                    @if(!empty($report['unansweredStudents']))
-                        <div class="px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-700">
-                            <span class="font-bold font-heading">Sem resposta registrada:</span>
-                            {{ implode(', ', $report['unansweredStudents']) }}
-                        </div>
-                    @endif
                 </article>
             @empty
                 <div class="bg-white rounded-3xl p-10 text-center border border-magnolia-200 text-sm text-cloud-burst-600">
@@ -323,4 +353,34 @@
             @endforelse
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[data-toggle-students]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const targetId = button.getAttribute('aria-controls');
+                    const panel = targetId ? document.getElementById(targetId) : null;
+                    if (!panel) {
+                        return;
+                    }
+
+                    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+                    const nextExpanded = !isExpanded;
+
+                    button.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+                    panel.classList.toggle('hidden', !nextExpanded);
+
+                    const label = button.querySelector('[data-toggle-label]');
+                    if (label) {
+                        label.textContent = nextExpanded ? 'Recolher lista' : 'Mostrar lista';
+                    }
+
+                    const chevron = button.querySelector('[data-toggle-chevron]');
+                    if (chevron) {
+                        chevron.classList.toggle('rotate-180', nextExpanded);
+                    }
+                });
+            });
+        });
+    </script>
 </x-layouts.admin>

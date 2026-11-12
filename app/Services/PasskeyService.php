@@ -341,6 +341,10 @@ class PasskeyService
         $host = strtolower((string) (parse_url($appUrl, PHP_URL_HOST) ?: $expectedRpId));
         $port = parse_url($appUrl, PHP_URL_PORT);
 
+        if (app()->isProduction() && $host !== 'localhost' && $host !== '127.0.0.1') {
+            $scheme = 'https';
+        }
+
         $defaultPort = $scheme === 'https' ? 443 : 80;
         if ($port !== null && (int) $port !== $defaultPort) {
             return "{$scheme}://{$host}:{$port}";
