@@ -12,8 +12,14 @@ class StudentAttempt extends Model
 {
     use HasFactory, HasPublicUuid;
 
+    /**
+     * Alfabeto alfanumérico completo (A-Z e 0-9, contendo 0, O, 1, I, L).
+     */
+    private const ACCESS_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
     protected $fillable = [
         'uuid',
+        'access_code',
         'classroom_id',
         'student_name',
         'started_at',
@@ -26,7 +32,49 @@ class StudentAttempt extends Model
     protected $hidden = [
         'id',
         'classroom_id',
+        'access_code',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $attempt): void {
+            if (empty($attempt->access_code)) {
+                $attempt->access_code = self::generateUniqueAccessCode();
+            }
+        });
+    }
+
+    /**
+     * Gera o código de retomada do aluno no padrão ALU-XXXXXXXXXX (10 caracteres).
+     */
+    public static function generateUniqueAccessCode(): string
+    {
+        $maxIndex = strlen(self::ACCESS_CODE_ALPHABET) - 1;
+
+        do {
+            $suffix = '';
+            for ($i = 0; $i < 10; $i++) {
+                $suffix .= self::ACCESS_CODE_ALPHABET[random_int(0, $maxIndex)];
+            }
+            $code = 'ALU-'.$suffix;
+        } while (self::where('access_code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
+     * Normaliza a digitação do aluno (caixa, espaços, hífen ausente) para o formato ALU-XXXXXXXXXX.
+     */
+    public static function normalizeAccessCode(string $input): string
+    {
+        $clean = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $input) ?? '');
+
+        if (str_starts_with($clean, 'ALU')) {
+            $clean = substr($clean, 3);
+        }
+
+        return 'ALU-'.$clean;
+    }
 
     protected function casts(): array
     {

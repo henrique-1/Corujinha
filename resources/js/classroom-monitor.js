@@ -42,6 +42,16 @@ export function initClassroomMonitor() {
                     <td class="py-4 px-6 font-bold text-cloud-burst-950">
                         ${escapeHtml(e.attempt.student_name)}
                     </td>
+                    <td class="py-4 px-6 font-jetbrains font-mono font-bold text-xs text-royal-purple-950 select-all">
+                        <span class="inline-flex items-center gap-1 bg-royal-purple-50 border border-royal-purple-200 px-2 py-0.5 rounded-md">
+                            <span>${escapeHtml(e.attempt.access_code || '—')}</span>
+                            ${e.attempt.access_code ? `
+                                <button type="button" onclick="navigator.clipboard?.writeText('${escapeHtml(e.attempt.access_code)}'); this.title='Copiado!';" class="cursor-pointer text-royal-purple-600 hover:text-royal-purple-900 transition" title="Copiar código">
+                                    <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                </button>
+                            ` : ''}
+                        </span>
+                    </td>
                     <td class="py-4 px-6" id="status-cell-${e.attempt.id}">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-broom-100 text-broom-950 border border-broom-300">
                             Em andamento

@@ -14,14 +14,43 @@
                 </p>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-900 border border-royal-purple-200">
-                <x-lucide-user class="w-3.5 h-3.5 text-royal-purple-800" />
-                <span>{{ $attempt->student_name }}</span>
-            </span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-broom-100 text-broom-950 border border-broom-300">
-                <span>Turma:</span> <span>{{ $classroom->code }}</span>
-            </span>
+        <div class="flex flex-wrap items-center gap-2.5">
+            @if($isTeacherPreview ?? false)
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold font-heading bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                    <x-lucide-eye class="w-3.5 h-3.5 text-amber-800" />
+                    <span>Visualização do Professor (Avanço Livre)</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold bg-broom-100 text-broom-950 border border-broom-300">
+                    <span>Turma:</span> <span>{{ $classroom->code }}</span>
+                </span>
+                <a href="{{ route('professor.salas.show', $classroom) }}" class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold font-heading bg-royal-purple-800 hover:bg-royal-purple-900 text-white transition shadow-2xs">
+                    <x-lucide-arrow-left class="w-3.5 h-3.5" />
+                    <span>Voltar à Sala</span>
+                </a>
+            @else
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-900 border border-royal-purple-200">
+                    <x-lucide-user class="w-3.5 h-3.5 text-royal-purple-800" />
+                    <span>{{ $attempt?->student_name }}</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-broom-100 text-broom-950 border border-broom-300">
+                    <span>Turma:</span> <span>{{ $classroom->code }}</span>
+                </span>
+                {{-- Código de Retomada do Aluno --}}
+                <div class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-bold bg-sky-blue-50 text-sky-blue-950 border border-sky-blue-300 shadow-2xs" title="Anote este código para voltar de onde parou em outra aula">
+                    <x-lucide-key class="w-3.5 h-3.5 text-sky-blue-700 shrink-0" />
+                    <span class="hidden sm:inline text-sky-blue-800 font-medium">Seu Código:</span>
+                    <span class="font-mono font-black tracking-wider text-sky-blue-950 select-all">{{ $attempt?->access_code }}</span>
+                    <button type="button" onclick="navigator.clipboard?.writeText('{{ $attempt?->access_code }}'); this.innerText='Copiado!'; setTimeout(() => this.innerText='Copiar', 2000)" class="cursor-pointer ml-1 px-2 py-0.5 rounded-md bg-sky-blue-200 hover:bg-sky-blue-300 text-sky-blue-900 text-[11px] font-heading font-bold transition">
+                        Copiar
+                    </button>
+                </div>
+                {{-- Botão Sair e Continuar Depois --}}
+                <button type="button" onclick="document.getElementById('modal-continuar-depois')?.classList.remove('hidden')" class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold font-heading bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition shadow-2xs">
+                    <x-lucide-bookmark class="w-3.5 h-3.5 text-gray-600" />
+                    <span class="hidden md:inline">Sair e Continuar Depois</span>
+                    <span class="md:hidden">Sair</span>
+                </button>
+            @endif
         </div>
     </header>
 
@@ -179,6 +208,68 @@
         </button>
     </div>
 
+    @if(!($isTeacherPreview ?? false) && $attempt)
+    {{-- Modal Sair e Continuar Mais Tarde --}}
+    <div id="modal-continuar-depois" class="hidden fixed inset-0 z-50 overflow-y-auto bg-royal-purple-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-royal-purple-200 flex flex-col gap-5 text-cloud-burst-950 relative animate-in fade-in zoom-in-95 duration-150">
+            <button type="button" onclick="document.getElementById('modal-continuar-depois')?.classList.add('hidden')" aria-label="Fechar" class="cursor-pointer absolute top-5 right-5 text-gray-400 hover:text-gray-700 p-1 rounded-lg">
+                <x-lucide-x class="w-5 h-5" />
+            </button>
+
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-sky-blue-100 text-sky-blue-700 flex items-center justify-center shrink-0">
+                    <x-lucide-bookmark class="w-6 h-6" />
+                </div>
+                <div>
+                    <h3 class="text-lg md:text-xl font-bold font-heading text-royal-purple-950 leading-snug">
+                        Sair e Continuar Mais Tarde
+                    </h3>
+                    <p class="text-xs text-cloud-burst-700">
+                        Suas respostas já preenchidas são salvas automaticamente!
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-royal-purple-50 rounded-2xl p-4 border border-royal-purple-200/80">
+                <p class="text-xs font-bold uppercase tracking-wider text-royal-purple-800 mb-1">
+                    Anote seu código pessoal no caderno:
+                </p>
+                <div class="flex items-center justify-between gap-3 bg-white px-4 py-3 rounded-xl border border-royal-purple-300 shadow-inner my-2">
+                    <span id="access-code-modal" class="text-2xl md:text-3xl font-mono font-black tracking-widest text-royal-purple-950 select-all">
+                        {{ $attempt->access_code }}
+                    </span>
+                    <button type="button" id="copy-access-code-btn" onclick="navigator.clipboard?.writeText('{{ $attempt->access_code }}'); this.innerText='Copiado!'; setTimeout(() => this.innerText='Copiar', 2000)" class="cursor-pointer px-3.5 py-1.5 rounded-lg bg-sky-blue-500 hover:bg-sky-blue-600 text-sky-blue-950 text-xs font-bold font-heading transition">
+                        Copiar
+                    </button>
+                </div>
+                <div class="flex items-center gap-2 mt-2 text-xs text-royal-purple-900">
+                    <x-lucide-info class="w-4 h-4 shrink-0 text-royal-purple-700" />
+                    <span>Turma: <strong class="font-mono">{{ $classroom->code }}</strong> &bull; Aluno: <strong>{{ $attempt->student_name }}</strong></span>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-xs text-gray-700 space-y-1.5">
+                <p class="font-bold font-heading text-gray-900">Como voltar em uma próxima aula:</p>
+                <ol class="list-decimal list-inside space-y-1 text-gray-600 pl-1">
+                    <li>Acesse a página inicial de entrada (<strong>/sala</strong>).</li>
+                    <li>Clique na aba <strong>"Voltar a uma sala"</strong>.</li>
+                    <li>Digite o código da turma (<strong>{{ $classroom->code }}</strong>) e o seu código anotado.</li>
+                </ol>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="document.getElementById('modal-continuar-depois')?.classList.add('hidden')" class="cursor-pointer w-full sm:w-auto px-4 py-2.5 rounded-xl border border-gray-300 text-xs font-bold font-heading text-gray-700 hover:bg-gray-100 transition text-center">
+                    Continuar Respondendo Agora
+                </button>
+                <a href="{{ route('estudante.entrar') }}" class="cursor-pointer w-full sm:w-auto px-5 py-2.5 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white text-xs font-bold font-heading transition shadow-xs text-center flex items-center justify-center gap-2">
+                    <x-lucide-log-out class="w-4 h-4" />
+                    <span>Sair da Avaliação</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Toast Notification --}}
     <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-royal-purple-950 text-white text-sm px-5 py-3 rounded-xl shadow-lg max-w-[90vw] transition-all"></div>
 
@@ -191,6 +282,8 @@
             finishUrl: @json(route('estudante.concluir_atividade', $classroom->code)),
             questions: @json($questionsData),
             collectiveReviewEnabled: @json($classroom->collective_review_enabled),
+            isTeacherPreview: @json($isTeacherPreview ?? false),
+            backUrl: @json(route('professor.salas.show', $classroom)),
         };
     </script>
 </x-layouts.app>

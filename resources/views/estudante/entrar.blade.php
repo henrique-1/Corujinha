@@ -1,4 +1,8 @@
 <x-layouts.app title="Entrar na Sala de Aula · Corujinha">
+    @php
+        $resumeActive = old('resume_code') !== null || $errors->has('access_code') || request()->query('modo') === 'retomar';
+    @endphp
+
     <div class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200">
             <div class="text-center flex flex-col items-center">
@@ -7,9 +11,21 @@
                 <h1 class="text-xl font-bold font-heading text-cloud-burst-950 tracking-tight">
                     Sala de Avaliação
                 </h1>
-                <p class="mt-1 text-xs text-cloud-burst-800">
-                    Digite o código fornecido pelo seu professor para iniciar
+                <p id="entry-subtitle" class="mt-1 text-xs text-cloud-burst-800">
+                    {{ $resumeActive ? 'Informe o código da sala e o seu código de aluno para continuar de onde parou' : 'Digite o código fornecido pelo seu professor para iniciar' }}
                 </p>
+            </div>
+
+            {{-- Alternador de modo --}}
+            <div role="tablist" aria-label="Modo de entrada" class="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-magnolia-100 border border-magnolia-200">
+                <button type="button" role="tab" id="tab-new" data-entry-tab="new" aria-selected="{{ $resumeActive ? 'false' : 'true' }}" aria-controls="panel-new"
+                        class="cursor-pointer py-2 px-3 rounded-xl text-xs font-bold font-heading transition">
+                    Primeira vez
+                </button>
+                <button type="button" role="tab" id="tab-resume" data-entry-tab="resume" aria-selected="{{ $resumeActive ? 'true' : 'false' }}" aria-controls="panel-resume"
+                        class="cursor-pointer py-2 px-3 rounded-xl text-xs font-bold font-heading transition">
+                    Voltar a uma sala
+                </button>
             </div>
 
             @if($errors->any())
@@ -23,7 +39,14 @@
                 </div>
             @endif
 
-            <form action="{{ route('estudante.iniciar') }}" method="POST" class="space-y-4">
+            @if(session('info'))
+                <div class="p-4 rounded-xl bg-sky-blue-50 border border-sky-blue-200 text-xs font-medium text-sky-blue-950">
+                    {{ session('info') }}
+                </div>
+            @endif
+
+            {{-- Painel: Primeira vez --}}
+            <form id="panel-new" role="tabpanel" aria-labelledby="tab-new" action="{{ route('estudante.iniciar') }}" method="POST" class="space-y-4 {{ $resumeActive ? 'hidden' : '' }}">
                 @csrf
 
                 <div>
@@ -31,7 +54,7 @@
                         Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
                     </label>
                     <input id="code" name="code" type="text" required value="{{ old('code', $code) }}"
-                           placeholder="Ex.: AVAL-XXXXXX" autofocus maxlength="12"
+                           placeholder="AVAL-XXXXXX" autofocus maxlength="12" data-room-code
                            class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
                     <p class="text-[11px] text-cloud-burst-600 mt-1 text-center">Formato com hífen aplicado automaticamente ao digitar.</p>
                 </div>
@@ -58,10 +81,43 @@
                         <x-lucide-edit-3 class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
                         <span><b>Justificativa:</b> defenda sua escolha em cada alternativa.</span>
                     </div>
+                    <div class="flex items-start gap-2">
+                        <x-lucide-bookmark class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
+                        <span><b>Precisa parar?</b> Anote o seu código de aluno exibido na tela para continuar depois.</span>
+                    </div>
                 </div>
 
                 <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-base shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
                     <span>Entrar na Sala e Iniciar</span>
+                    <x-lucide-arrow-right class="w-4 h-4" />
+                </button>
+            </form>
+
+            {{-- Painel: Voltar a uma sala --}}
+            <form id="panel-resume" role="tabpanel" aria-labelledby="tab-resume" action="{{ route('estudante.retomar') }}" method="POST" class="space-y-4 {{ $resumeActive ? '' : 'hidden' }}">
+                @csrf
+
+                <div>
+                    <label for="resume_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                        Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
+                    </label>
+                    <input id="resume_code" name="resume_code" type="text" required value="{{ old('resume_code', $code) }}"
+                           placeholder="AVAL-XXXXXX" maxlength="12" data-room-code autocomplete="off"
+                           class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
+                </div>
+
+                <div>
+                    <label for="access_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                        Seu Código de Aluno <span class="text-shocking-pink-600">*</span>
+                    </label>
+                    <input id="access_code" name="access_code" type="text" required value="{{ old('access_code') }}"
+                           placeholder="ALU-XXXXXXXXXX" maxlength="14" data-access-code autocomplete="off" autocapitalize="characters"
+                           class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
+                    <p class="text-[11px] text-cloud-burst-600 mt-1 text-center">Digite o código completo iniciado por <b>ALU-</b> que apareceu na sua tela.</p>
+                </div>
+
+                <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-base shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                    <span>Continuar de Onde Parei</span>
                     <x-lucide-arrow-right class="w-4 h-4" />
                 </button>
             </form>
@@ -78,20 +134,57 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const codeInput = document.getElementById('code');
-            if (codeInput) {
-                codeInput.addEventListener('input', (e) => {
-                    let val = e.target.value.toUpperCase();
-                    // Remove caracteres não alfanuméricos e traços múltiplos
-                    val = val.replace(/[^A-Z0-9]/g, '');
-
-                    // Aplica máscara automática se tiver pelo menos 4 caracteres (ex: PREFIX-SUFIX)
-                    if (val.length > 4) {
-                        val = val.slice(0, 4) + '-' + val.slice(4, 10);
+            // Formatação do código da sala: AVAL-XXXXXX
+            document.querySelectorAll('[data-room-code]').forEach((input) => {
+                input.addEventListener('input', (e) => {
+                    let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+                    if (val.startsWith('AVAL') && val.length > 4 && val[4] !== '-') {
+                        val = 'AVAL-' + val.slice(4);
                     }
-                    e.target.value = val;
+                    e.target.value = val.slice(0, 11);
                 });
-            }
+            });
+
+            // Formatação do código de aluno: o aluno digita ALU- e os 10 caracteres
+            document.querySelectorAll('[data-access-code]').forEach((input) => {
+                input.addEventListener('input', (e) => {
+                    let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+                    if (val.startsWith('ALU') && val.length > 3 && val[3] !== '-') {
+                        val = 'ALU-' + val.slice(3);
+                    }
+                    e.target.value = val.slice(0, 14);
+                });
+            });
+
+            // Alternador de modo (Primeira vez / Voltar a uma sala)
+            const tabs = document.querySelectorAll('[data-entry-tab]');
+            const panels = {
+                new: document.getElementById('panel-new'),
+                resume: document.getElementById('panel-resume'),
+            };
+            const subtitle = document.getElementById('entry-subtitle');
+            const subtitles = {
+                new: 'Digite o código fornecido pelo seu professor para iniciar',
+                resume: 'Informe o código da sala e o seu código de aluno para continuar de onde parou',
+            };
+
+            const activate = (mode) => {
+                tabs.forEach((tab) => {
+                    const active = tab.dataset.entryTab === mode;
+                    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+                    tab.classList.toggle('bg-white', active);
+                    tab.classList.toggle('shadow-xs', active);
+                    tab.classList.toggle('text-royal-purple-900', active);
+                    tab.classList.toggle('text-cloud-burst-700', !active);
+                });
+                Object.entries(panels).forEach(([key, panel]) => panel?.classList.toggle('hidden', key !== mode));
+                if (subtitle) {
+                    subtitle.textContent = subtitles[mode];
+                }
+            };
+
+            tabs.forEach((tab) => tab.addEventListener('click', () => activate(tab.dataset.entryTab)));
+            activate(panels.resume && !panels.resume.classList.contains('hidden') ? 'resume' : 'new');
         });
     </script>
 </x-layouts.app>

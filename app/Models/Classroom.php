@@ -95,12 +95,23 @@ class Classroom extends Model
     }
 
     /**
+     * Alfabeto alfanumérico completo (A-Z e 0-9, contendo 0, O, 1, I, L).
+     */
+    private const ROOM_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+    /**
      * Gera um código de sala legível e único (padrão AVAL-XXXXXX).
      */
     public static function generateUniqueCode(string $prefix = 'AVAL'): string
     {
+        $maxIndex = strlen(self::ROOM_CODE_ALPHABET) - 1;
+
         do {
-            $code = $prefix.'-'.strtoupper(Str::random(6));
+            $suffix = '';
+            for ($i = 0; $i < 6; $i++) {
+                $suffix .= self::ROOM_CODE_ALPHABET[random_int(0, $maxIndex)];
+            }
+            $code = $prefix.'-'.$suffix;
         } while (self::where('code', $code)->exists());
 
         return $code;

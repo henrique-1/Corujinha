@@ -84,6 +84,68 @@ class ClassroomPlayerController extends Controller
     }
 
     /**
+     * Retoma uma tentativa existente a partir do Código da Sala + Código do Aluno.
+     */
+    public function resume(Request $request): RedirectResponse
+    {
+        $missKey = $this->resumeMissLimiterKey($request);
+        if (RateLimiter::tooManyAttempts($missKey, 20)) {
+            abort(429, 'Muitas tentativas com códigos inválidos. Aguarde um minuto.');
+        }
+
+        $request->merge([
+            'resume_code' => is_string($request->input('resume_code')) ? strtoupper(trim($request->input('resume_code'))) : null,
+        ]);
+
+        $validated = $request->validate([
+            'resume_code' => ['required', 'string', 'max:20'],
+            'access_code' => ['required', 'string', 'max:20'],
+        ], [
+            'resume_code.required' => 'Informe o código da sala de aula.',
+            'access_code.required' => 'Informe o seu código de aluno (ALU-XXXXXXXXXX).',
+        ]);
+
+        $classroom = Classroom::where('code', $validated['resume_code'])->first();
+        $attempt = $classroom
+            ? StudentAttempt::where('classroom_id', $classroom->id)
+                ->where('access_code', StudentAttempt::normalizeAccessCode($validated['access_code']))
+                ->first()
+            : null;
+
+        if (! $classroom || ! $attempt) {
+            RateLimiter::hit($missKey, 60);
+
+            return back()->withInput()->withErrors([
+                'access_code' => 'Não encontramos uma participação com esses códigos. Confira o código da sala e o código do aluno anotado.',
+            ]);
+        }
+
+        RateLimiter::clear($missKey);
+
+        $request->session()->regenerate();
+        session([
+            'current_attempt_id' => $attempt->id,
+            'current_classroom_code' => $classroom->code,
+        ]);
+
+        if (! $classroom->is_active) {
+            return redirect()->route('estudante.resultado', ['code' => $classroom->code])
+                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+        }
+
+        if ($attempt->status === 'in_progress') {
+            return redirect()->route('estudante.player', ['code' => $classroom->code])
+                ->with('info', 'Bem-vindo de volta! Você continua de onde parou.');
+        }
+
+        if ($classroom->collective_review_enabled && $attempt->status === 'submitted') {
+            return redirect()->route('estudante.revisao', ['code' => $classroom->code]);
+        }
+
+        return redirect()->route('estudante.resultado', ['code' => $classroom->code]);
+    }
+
+    /**
      * Tela de execução da avaliação (player de questões).
      */
     public function player(Request $request, string $code): View|RedirectResponse
@@ -541,5 +603,10 @@ class ClassroomPlayerController extends Controller
     private function classroomMissLimiterKey(Request $request): string
     {
         return 'sala-code-miss:'.$request->ip();
+    }
+
+    private function resumeMissLimiterKey(Request $request): string
+    {
+        return 'sala-resume-miss:'.$request->ip();
     }
 }
