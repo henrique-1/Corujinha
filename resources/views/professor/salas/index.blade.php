@@ -75,7 +75,12 @@
                                             <span>Painel</span>
                                         </a>
                                         <form action="{{ route('professor.salas.devolutiva.enter', $sala) }}" method="POST" class="inline"
-                                              @if($sala->is_active) onsubmit="return confirm('Ao entrar na Devolutiva, a sala será fechada definitivamente para novas respostas e não poderá mais ser reaberta. Deseja continuar?');" @endif>
+                                              @if($sala->is_active)
+                                                  data-confirm="Ao entrar na Devolutiva, a sala será fechada definitivamente para novas respostas e não poderá mais ser reaberta. Deseja continuar?"
+                                                  data-confirm-title="Entrar na Devolutiva"
+                                                  data-confirm-ok="Fechar Sala e Abrir Devolutiva"
+                                                  data-confirm-tone="primary"
+                                              @endif>
                                             @csrf
                                             <button type="submit" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-white bg-royal-purple-800 hover:bg-royal-purple-900 px-3 py-1.5 rounded-lg shadow-2xs transition">
                                                 <x-lucide-presentation class="w-3.5 h-3.5" />
@@ -86,7 +91,11 @@
                                             <x-lucide-edit class="w-3.5 h-3.5" />
                                             <span>Editar</span>
                                         </a>
-                                        <form action="{{ route('professor.salas.destroy', $sala) }}" method="POST" class="inline" onsubmit="return confirm('Deseja realmente excluir esta sala de aula?');">
+                                        <form action="{{ route('professor.salas.destroy', $sala) }}" method="POST" class="inline"
+                                              data-confirm="Deseja realmente excluir esta sala de aula? Todos os registros vinculados serão removidos."
+                                              data-confirm-title="Excluir Sala de Aula"
+                                              data-confirm-ok="Excluir Sala"
+                                              data-confirm-tone="danger">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition">

@@ -175,3 +175,15 @@ dialog::backdrop {
 .rich-text-content a:hover {
     color: var(--color-royal-purple-950);
 }
+
+/* Native <dialog> modal scroll containment & backdrop */
+dialog:modal {
+    overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background-color: rgba(46, 28, 89, 0.55);
+    backdrop-filter: blur(2px);
+}

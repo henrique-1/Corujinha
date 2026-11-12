@@ -74,7 +74,11 @@
                                                 </button>
                                             </form>
 
-                                            <form action="{{ route('admin.professores.destroy_invite', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja cancelar e remover o convite para este professor?');">
+                                            <form action="{{ route('admin.professores.destroy_invite', $prof) }}" method="POST" class="inline"
+                                                  data-confirm="Tem certeza que deseja cancelar e remover o convite para este professor?"
+                                                  data-confirm-title="Remover Convite"
+                                                  data-confirm-ok="Remover Convite"
+                                                  data-confirm-tone="danger">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold font-heading text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-900 px-3 py-1.5 rounded-lg border border-rose-200 transition shadow-2xs whitespace-nowrap">
@@ -85,7 +89,11 @@
                                         @endif
 
                                         @if($prof->isTotpEnabled())
-                                            <form action="{{ route('admin.professores.disable_totp', $prof) }}" method="POST" class="inline" onsubmit="return confirm('Desabilitar o autenticador (TOTP) deste professor? O professor voltará a acessar apenas com senha.');">
+                                            <form action="{{ route('admin.professores.disable_totp', $prof) }}" method="POST" class="inline"
+                                                  data-confirm="Desabilitar o autenticador (TOTP) deste professor? O professor voltará a acessar apenas com senha."
+                                                  data-confirm-title="Resetar Autenticador (TOTP)"
+                                                  data-confirm-ok="Resetar TOTP"
+                                                  data-confirm-tone="warning">
                                                 @csrf
                                                 <button type="submit" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold font-heading text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-900 px-3 py-1.5 rounded-lg border border-rose-200 transition shadow-2xs whitespace-nowrap" title="Usar caso o professor tenha perdido o celular">
                                                     <x-lucide-key-round class="w-3.5 h-3.5 text-rose-600" />

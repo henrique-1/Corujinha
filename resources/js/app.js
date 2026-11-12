@@ -1,4 +1,5 @@
 import './echo';
+import { initDialogSystem } from './dialog-modal';
 import { initClassroomPlayer } from './classroom-player';
 import { initQuestionHighlighter } from './question-highlighter';
 import { initClassroomMonitor } from './classroom-monitor';
@@ -7,6 +8,8 @@ import { initClassroomsListMonitor } from './classrooms-list-monitor';
 import { initPasskeyLogin, initPasskeyRegister } from './passkey-auth';
 
 document.addEventListener('DOMContentLoaded', () => {
+    initDialogSystem();
+
     if (window.__CLASSROOM_DATA__) {
         initClassroomPlayer();
     }

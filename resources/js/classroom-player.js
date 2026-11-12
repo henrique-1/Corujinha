@@ -5,6 +5,7 @@
  */
 
 import { getSelectionOffsets, renderHtmlWithHighlights } from './html-highlight';
+import { openConfirmDialog } from './dialog-modal';
 
 export function initClassroomPlayer() {
     const config = window.__CLASSROOM_DATA__;
@@ -635,9 +636,16 @@ export function initClassroomPlayer() {
         });
     });
 
-    $('clear-all')?.addEventListener('click', () => {
+    $('clear-all')?.addEventListener('click', async () => {
         const s = state();
-        if (confirm('Deseja remover todos os destaques desta questão?')) {
+        const confirmed = await openConfirmDialog({
+            title: 'Limpar destaques',
+            message: 'Deseja remover todos os destaques desta questão?',
+            confirmText: 'Remover Destaques',
+            cancelText: 'Manter',
+            tone: 'warning',
+        });
+        if (confirmed) {
             s.markers = [];
             renderAllTargets();
             hideHighlightPopover();
@@ -735,15 +743,13 @@ export function initClassroomPlayer() {
         const finalMessage = message || 'A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de devolutiva.';
         const targetUrl = redirectUrl || `/sala/${config.code}/resultado`;
 
-        const overlay = document.createElement('div');
-        overlay.setAttribute('role', 'alertdialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-cloud-burst-950/75 backdrop-blur-xs p-4';
-
-        const card = document.createElement('div');
-        card.className = 'bg-white rounded-3xl max-w-md w-full p-6 md:p-8 border border-royal-purple-200 shadow-2xl space-y-4 text-center';
+        const dialog = document.createElement('dialog');
+        dialog.setAttribute('aria-labelledby', 'player-closed-title');
+        dialog.setAttribute('closedby', 'closerequest');
+        dialog.className = 'm-auto w-[calc(100%-2rem)] max-w-md rounded-3xl border border-royal-purple-200 bg-white p-6 md:p-8 shadow-2xl space-y-4 text-center open:block';
 
         const title = document.createElement('h2');
+        title.id = 'player-closed-title';
         title.className = 'text-xl font-extrabold font-heading text-cloud-burst-950';
         title.textContent = 'Avaliação Finalizada';
 
@@ -756,9 +762,9 @@ export function initClassroomPlayer() {
         cta.className = 'inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm transition';
         cta.textContent = 'Ir para a Devolutiva Agora';
 
-        card.append(title, desc, cta);
-        overlay.appendChild(card);
-        document.body.appendChild(overlay);
+        dialog.append(title, desc, cta);
+        document.body.appendChild(dialog);
+        dialog.showModal();
 
         setTimeout(() => {
             window.location.href = targetUrl;

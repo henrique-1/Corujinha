@@ -151,25 +151,23 @@
         </form>
     </main>
 
-    <div id="classroom-closed-modal" role="alertdialog" aria-modal="true" aria-labelledby="closed-modal-title"
-         class="fixed inset-0 z-50 hidden items-center justify-center bg-cloud-burst-950/75 backdrop-blur-xs p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 border border-royal-purple-200 shadow-2xl space-y-4 text-center">
-            <div class="w-12 h-12 rounded-2xl bg-royal-purple-100 text-royal-purple-800 flex items-center justify-center mx-auto">
-                <x-lucide-lock class="w-6 h-6" />
-            </div>
-            <h2 id="closed-modal-title" class="text-xl font-extrabold font-heading text-cloud-burst-950">
-                Avaliação Finalizada
-            </h2>
-            <p id="closed-modal-message" class="text-sm text-cloud-burst-700 leading-relaxed">
-                A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de devolutiva.
-            </p>
-            <a id="closed-modal-link" href="{{ route('estudante.resultado', $classroom->code) }}"
-               class="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm transition">
-                <span>Ir para a Devolutiva Agora</span>
-                <x-lucide-arrow-right class="w-4 h-4" />
-            </a>
+    <dialog id="classroom-closed-modal" aria-labelledby="closed-modal-title" closedby="closerequest"
+            class="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl border border-royal-purple-200 bg-white p-6 md:p-8 shadow-2xl space-y-4 text-center open:block">
+        <div class="w-12 h-12 rounded-2xl bg-royal-purple-100 text-royal-purple-800 flex items-center justify-center mx-auto">
+            <x-lucide-lock class="w-6 h-6" />
         </div>
-    </div>
+        <h2 id="closed-modal-title" class="text-xl font-extrabold font-heading text-cloud-burst-950">
+            Avaliação Finalizada
+        </h2>
+        <p id="closed-modal-message" class="text-sm text-cloud-burst-700 leading-relaxed">
+            A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de devolutiva.
+        </p>
+        <a id="closed-modal-link" href="{{ route('estudante.resultado', $classroom->code) }}"
+           class="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm transition">
+            <span>Ir para a Devolutiva Agora</span>
+            <x-lucide-arrow-right class="w-4 h-4" />
+        </a>
+    </dialog>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -241,9 +239,8 @@
                         if (linkEl) {
                             linkEl.href = redirectUrl;
                         }
-                        if (modal) {
-                            modal.classList.remove('hidden');
-                            modal.classList.add('flex');
+                        if (modal && !modal.open) {
+                            modal.showModal();
                         }
 
                         setTimeout(() => {

@@ -22,7 +22,12 @@
                     </a>
 
                     <form action="{{ route('professor.salas.devolutiva.enter', $classroom) }}" method="POST"
-                          @if($classroom->is_active) onsubmit="return confirm('Ao entrar na Devolutiva, a sala será fechada definitivamente para novas respostas e não poderá mais ser reaberta. Deseja continuar?');" @endif>
+                          @if($classroom->is_active)
+                              data-confirm="Ao entrar na Devolutiva, a sala será fechada definitivamente para novas respostas e não poderá mais ser reaberta. Deseja continuar?"
+                              data-confirm-title="Entrar na Devolutiva"
+                              data-confirm-ok="Fechar Sala e Abrir Devolutiva"
+                              data-confirm-tone="primary"
+                          @endif>
                         @csrf
                         <button type="submit" class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white shadow-sm transition flex items-center gap-2">
                             <x-lucide-presentation class="w-4 h-4" />
@@ -32,7 +37,10 @@
 
                     @if($classroom->is_active)
                         <form action="{{ route('professor.salas.toggle_status', $classroom) }}" method="POST"
-                              onsubmit="return confirm('Fechar a sala impede novas respostas definitivamente e não pode ser desfeito. Deseja fechar agora?');">
+                              data-confirm="Fechar a sala impede novas respostas definitivamente e não pode ser desfeito. Deseja fechar agora?"
+                              data-confirm-title="Fechar Sala de Aula"
+                              data-confirm-ok="Fechar Definitivamente"
+                              data-confirm-tone="warning">
                             @csrf
                             <button type="submit" class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl border border-broom-400 text-broom-950 bg-broom-50 hover:bg-broom-100 transition flex items-center gap-2">
                                 <x-lucide-lock class="w-4 h-4 text-broom-800" />

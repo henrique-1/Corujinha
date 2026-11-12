@@ -157,7 +157,11 @@
                                         <x-lucide-edit class="w-3.5 h-3.5" />
                                         <span>Editar</span>
                                     </a>
-                                    <form action="{{ route('professor.perguntas.destroy', $q) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja excluir esta pergunta?');">
+                                    <form action="{{ route('professor.perguntas.destroy', $q) }}" method="POST" class="inline"
+                                          data-confirm="Tem certeza que deseja excluir esta pergunta?"
+                                          data-confirm-title="Excluir Pergunta"
+                                          data-confirm-ok="Excluir"
+                                          data-confirm-tone="danger">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="cursor-pointer inline-flex items-center gap-1 text-xs font-bold font-heading text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200 transition">

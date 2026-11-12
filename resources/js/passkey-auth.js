@@ -1,4 +1,5 @@
 import 'webauthn-polyfills';
+import { openNoticeDialog, openPromptDialog } from './dialog-modal';
 
 function bufferToBase64Url(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -181,7 +182,11 @@ export function initPasskeyRegister() {
 
     btn.addEventListener('click', async () => {
         if (!window.PublicKeyCredential) {
-            alert('Seu navegador não possui suporte a Passkeys (WebAuthn).');
+            await openNoticeDialog({
+                title: 'Navegador incompatível',
+                message: 'Seu navegador não possui suporte a Passkeys (WebAuthn).',
+                tone: 'warning',
+            });
             return;
         }
 
@@ -201,7 +206,11 @@ export function initPasskeyRegister() {
                 : null;
 
             if (!spkiBuffer) {
-                alert('Seu navegador não exportou a chave pública SPKI necessária para o login seguro.');
+                await openNoticeDialog({
+                    title: 'Erro de compatibilidade',
+                    message: 'Seu navegador não exportou a chave pública SPKI necessária para o login seguro.',
+                    tone: 'warning',
+                });
                 return;
             }
 
@@ -210,7 +219,17 @@ export function initPasskeyRegister() {
                 ? cred.response.getPublicKeyAlgorithm()
                 : -7;
 
-            const name = prompt('Dê um nome para esta chave (ex: Notebook, Celular)', 'Minha Passkey');
+            const name = await openPromptDialog({
+                title: 'Nomear Passkey',
+                message: 'Dê um nome para identificar esta chave de acesso (ex: Notebook, Celular).',
+                defaultValue: 'Minha Passkey',
+                placeholder: 'Ex: Notebook do Trabalho',
+                confirmText: 'Salvar Passkey',
+                cancelText: 'Cancelar',
+            });
+            if (name === null) {
+                return;
+            }
             const saveRes = await fetch(storeUrl, {
                 method: 'POST',
                 headers: {
@@ -223,7 +242,7 @@ export function initPasskeyRegister() {
                     clientDataJSON: encoded.response.clientDataJSON,
                     publicKeySpki,
                     publicKeyAlg,
-                    name: name || 'Minha Passkey',
+                    name: name.trim() || 'Minha Passkey',
                 }),
             });
 
@@ -239,19 +258,39 @@ export function initPasskeyRegister() {
                         // Ignora
                     }
                 }
-                alert(errData.error || 'Erro ao registrar a Passkey no servidor.');
+                await openNoticeDialog({
+                    title: 'Erro ao registrar Passkey',
+                    message: errData.error || 'Erro ao registrar a Passkey no servidor.',
+                    tone: 'danger',
+                });
                 return;
             }
 
-            alert('Passkey registrada com sucesso!');
+            await openNoticeDialog({
+                title: 'Passkey registrada',
+                message: 'Passkey registrada com sucesso!',
+                tone: 'primary',
+            });
             window.location.reload();
         } catch (err) {
             if (err?.name === 'InvalidStateError') {
-                alert('Já existe uma Passkey cadastrada neste autenticador para esta conta.');
+                await openNoticeDialog({
+                    title: 'Passkey já cadastrada',
+                    message: 'Já existe uma Passkey cadastrada neste autenticador para esta conta.',
+                    tone: 'warning',
+                });
             } else if (err?.name === 'SecurityError') {
-                alert('Erro de segurança ou domínio inválido para WebAuthn (use HTTPS ou localhost).');
+                await openNoticeDialog({
+                    title: 'Erro de segurança',
+                    message: 'Erro de segurança ou domínio inválido para WebAuthn (use HTTPS ou localhost).',
+                    tone: 'danger',
+                });
             } else if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
-                alert('Erro ao criar Passkey: ' + (err?.message || 'erro desconhecido'));
+                await openNoticeDialog({
+                    title: 'Erro ao criar Passkey',
+                    message: 'Erro ao criar Passkey: ' + (err?.message || 'erro desconhecido'),
+                    tone: 'danger',
+                });
             }
         }
     });
