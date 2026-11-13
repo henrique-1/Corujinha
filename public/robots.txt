@@ -1,2 +1,43 @@
+# Robots.txt - Corujinha (Prepara Avalia+)
+# Permite a indexação apenas das páginas iniciais e de acesso público.
+# Bloqueia áreas autenticadas, dados sensíveis, avaliações e crawlers de IA.
+
 User-agent: *
-Disallow:
+Allow: /$
+Allow: /login$
+Allow: /sala$
+Disallow: /admin/
+Disallow: /professor/
+Disallow: /sala/
+Disallow: /cadastro/
+Disallow: /redefinir-senha/
+Disallow: /esqueci-minha-senha/
+Disallow: /seguranca/
+Disallow: /dev/
+Disallow: /midia/
+Disallow: /_boost/
+
+# Bloqueio explícito contra raspagem do banco de questões por robôs e crawlers de IA
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
