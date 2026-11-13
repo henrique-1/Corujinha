@@ -17,12 +17,21 @@
             @csrf
 
             <div class="bg-white rounded-2xl p-6 border border-magnolia-200 shadow-xs space-y-4">
-                <div>
-                    <label for="title" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                        Título da Avaliação <span class="text-shocking-pink-600">*</span>
-                    </label>
-                    <input id="title" name="title" type="text" required value="{{ old('title') }}" placeholder="Ex.: Avaliação Diagnóstica · 7º Ano · Língua Portuguesa"
-                           class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label for="title" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Título da Avaliação <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <input id="title" name="title" type="text" required value="{{ old('title') }}" placeholder="Ex.: Avaliação Diagnóstica · 7º Ano · Língua Portuguesa"
+                               class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="academic_period" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Período Letivo (opcional)
+                        </label>
+                        <input id="academic_period" name="academic_period" type="text" value="{{ old('academic_period') }}" placeholder="Ex.: 1º Bimestre ou 1ª Etapa"
+                               class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
+                    </div>
                 </div>
 
                 <div>

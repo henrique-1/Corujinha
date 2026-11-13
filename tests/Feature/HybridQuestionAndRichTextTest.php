@@ -196,9 +196,12 @@ test('destaques do marca-texto funcionam sobre texto complexo sem corromper tags
 });
 
 test('logos possuem parametro de versionamento para evitar cache antigo em producao', function () {
-    $expectedVer = filemtime(public_path('images/logo/logo-horizontal.avif'));
+    $expectedFile = file_exists(public_path('images/logo/logo-horizontal-sm.avif'))
+        ? 'images/logo/logo-horizontal-sm.avif'
+        : 'images/logo/logo-horizontal.avif';
+    $expectedVer = filemtime(public_path($expectedFile));
 
     $this->get(route('login'))
         ->assertOk()
-        ->assertSee("images/logo/logo-horizontal.avif?v={$expectedVer}", false);
+        ->assertSee("{$expectedFile}?v={$expectedVer}", false);
 });

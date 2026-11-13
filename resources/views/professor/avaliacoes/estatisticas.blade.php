@@ -13,9 +13,16 @@
                         <x-lucide-bar-chart-3 class="w-3.5 h-3.5" />
                         <span>Desempenho Consolidado</span>
                     </span>
-                    <h1 class="text-2xl md:text-3xl font-extrabold font-heading text-cloud-burst-950 tracking-tight">
-                        {{ $assessment->title }}
-                    </h1>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h1 class="text-2xl md:text-3xl font-extrabold font-heading text-cloud-burst-950 tracking-tight">
+                            {{ $assessment->title }}
+                        </h1>
+                        @if($assessment->academic_period)
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold font-heading bg-sky-blue-100 text-sky-blue-900 border border-sky-blue-200">
+                                {{ $assessment->academic_period }}
+                            </span>
+                        @endif
+                    </div>
                     @if($assessment->description)
                         <p class="text-sm text-cloud-burst-700">{{ $assessment->description }}</p>
                     @endif
@@ -82,6 +89,17 @@
                                     <span class="text-royal-purple-800">{{ $room['accuracy_rate'] }}% de aproveitamento</span>
                                     <span class="text-cloud-burst-500 font-normal">({{ $room['attempts_count'] }} aluno(s))</span>
                                 </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 text-[11px] text-cloud-burst-600 pl-8">
+                                <span class="inline-flex items-center gap-1">
+                                    <x-lucide-calendar class="w-3.5 h-3.5 text-royal-purple-700" />
+                                    <span>Criada em: <strong class="text-cloud-burst-900">{{ $room['created_at'] }}</strong></span>
+                                </span>
+                                <span class="text-magnolia-300">•</span>
+                                <span class="inline-flex items-center gap-1">
+                                    <x-lucide-clock class="w-3.5 h-3.5 text-royal-purple-700" />
+                                    <span>Aplicação: <strong class="text-cloud-burst-900">{{ $room['application_date'] }}</strong></span>
+                                </span>
                             </div>
                             <div class="w-full h-5 rounded-full bg-magnolia-100 overflow-hidden p-0.5">
                                 <div class="h-full rounded-full bg-linear-to-r from-royal-purple-700 to-royal-purple-500 transition-all duration-500"

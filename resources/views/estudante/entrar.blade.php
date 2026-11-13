@@ -3,7 +3,7 @@
         $resumeActive = old('resume_code') !== null || $errors->has('access_code') || request()->query('modo') === 'retomar';
     @endphp
 
-    <div class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
+    <main id="main-content" role="main" class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200">
             <div class="text-center flex flex-col items-center">
                 <x-brand-logo variant="horizontal" picture-class="mb-4 block" img-class="h-16 w-auto object-contain mx-auto" />
@@ -46,81 +46,85 @@
             @endif
 
             {{-- Painel: Primeira vez --}}
-            <form id="panel-new" role="tabpanel" aria-labelledby="tab-new" action="{{ route('estudante.iniciar') }}" method="POST" class="space-y-4 {{ $resumeActive ? 'hidden' : '' }}">
-                @csrf
+            <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="{{ $resumeActive ? 'hidden' : '' }}">
+                <form action="{{ route('estudante.iniciar') }}" method="POST" class="space-y-4">
+                    @csrf
 
-                <div>
-                    <label for="code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                        Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
-                    </label>
-                    <input id="code" name="code" type="text" required value="{{ old('code', $code) }}"
-                           placeholder="AVAL-XXXXXX" autofocus maxlength="12" data-room-code
-                           class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
-                    <p class="text-[11px] text-cloud-burst-600 mt-1 text-center">Formato com hífen aplicado automaticamente ao digitar.</p>
-                </div>
+                    <div>
+                        <label for="code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <input id="code" name="code" type="text" required value="{{ old('code', $code) }}"
+                               placeholder="AVAL-XXXXXX" autofocus maxlength="12" data-room-code
+                               class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
+                        <p class="text-[11px] text-cloud-burst-800 mt-1 text-center font-medium">Formato com hífen aplicado automaticamente ao digitar.</p>
+                    </div>
 
-                <div>
-                    <label for="student_name" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                        Seu Nome Completo <span class="text-shocking-pink-600">*</span>
-                    </label>
-                    <input id="student_name" name="student_name" type="text" required value="{{ old('student_name') }}"
-                           placeholder="Digite seu nome completo"
-                           class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-800/20 focus:outline-none transition">
-                </div>
+                    <div>
+                        <label for="student_name" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Seu Nome Completo <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <input id="student_name" name="student_name" type="text" required value="{{ old('student_name') }}"
+                               placeholder="Digite seu nome completo"
+                               class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-800/20 focus:outline-none transition">
+                    </div>
 
-                <div class="bg-royal-purple-50 rounded-2xl p-4 border border-royal-purple-200 text-xs text-royal-purple-950 space-y-2">
-                    <div class="flex items-start gap-2">
-                        <x-lucide-timer class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
-                        <span><b>Cronômetro contínuo:</b> tempo corrido por questão.</span>
+                    <div class="bg-royal-purple-50 rounded-2xl p-4 border border-royal-purple-200 text-xs text-royal-purple-950 space-y-2">
+                        <div class="flex items-start gap-2">
+                            <x-lucide-timer class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
+                            <span><b>Cronômetro contínuo:</b> tempo corrido por questão.</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <x-lucide-highlighter class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
+                            <span><b>Marca-texto:</b> destaque comando (amarelo) e pistas (azul) no texto.</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <x-lucide-edit-3 class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
+                            <span><b>Justificativa:</b> defenda sua escolha em cada alternativa.</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <x-lucide-bookmark class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
+                            <span><b>Precisa parar?</b> Anote o seu código de aluno exibido na tela para continuar depois.</span>
+                        </div>
                     </div>
-                    <div class="flex items-start gap-2">
-                        <x-lucide-highlighter class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
-                        <span><b>Marca-texto:</b> destaque comando (amarelo) e pistas (azul) no texto.</span>
-                    </div>
-                    <div class="flex items-start gap-2">
-                        <x-lucide-edit-3 class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
-                        <span><b>Justificativa:</b> defenda sua escolha em cada alternativa.</span>
-                    </div>
-                    <div class="flex items-start gap-2">
-                        <x-lucide-bookmark class="w-4 h-4 text-royal-purple-800 shrink-0 mt-0.5" />
-                        <span><b>Precisa parar?</b> Anote o seu código de aluno exibido na tela para continuar depois.</span>
-                    </div>
-                </div>
 
-                <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-base shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
-                    <span>Entrar na Sala e Iniciar</span>
-                    <x-lucide-arrow-right class="w-4 h-4" />
-                </button>
-            </form>
+                    <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-base shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                        <span>Entrar na Sala e Iniciar</span>
+                        <x-lucide-arrow-right class="w-4 h-4" />
+                    </button>
+                </form>
+            </div>
 
             {{-- Painel: Voltar a uma sala --}}
-            <form id="panel-resume" role="tabpanel" aria-labelledby="tab-resume" action="{{ route('estudante.retomar') }}" method="POST" class="space-y-4 {{ $resumeActive ? '' : 'hidden' }}">
-                @csrf
+            <div id="panel-resume" role="tabpanel" aria-labelledby="tab-resume" class="{{ $resumeActive ? '' : 'hidden' }}">
+                <form action="{{ route('estudante.retomar') }}" method="POST" class="space-y-4">
+                    @csrf
 
-                <div>
-                    <label for="resume_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                        Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
-                    </label>
-                    <input id="resume_code" name="resume_code" type="text" required value="{{ old('resume_code', $code) }}"
-                           placeholder="AVAL-XXXXXX" maxlength="12" data-room-code autocomplete="off"
-                           class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
-                </div>
+                    <div>
+                        <label for="resume_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Código da Sala de Aula <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <input id="resume_code" name="resume_code" type="text" required value="{{ old('resume_code', $code) }}"
+                               placeholder="AVAL-XXXXXX" maxlength="12" data-room-code autocomplete="off"
+                               class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
+                    </div>
 
-                <div>
-                    <label for="access_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
-                        Seu Código de Aluno <span class="text-shocking-pink-600">*</span>
-                    </label>
-                    <input id="access_code" name="access_code" type="text" required value="{{ old('access_code') }}"
-                           placeholder="ALU-XXXXXXXXXX" maxlength="14" data-access-code autocomplete="off" autocapitalize="characters"
-                           class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
-                    <p class="text-[11px] text-cloud-burst-600 mt-1 text-center">Digite o código completo iniciado por <b>ALU-</b> que apareceu na sua tela.</p>
-                </div>
+                    <div>
+                        <label for="access_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
+                            Seu Código de Aluno <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <input id="access_code" name="access_code" type="text" required value="{{ old('access_code') }}"
+                               placeholder="ALU-XXXXXXXXXX" maxlength="14" data-access-code autocomplete="off" autocapitalize="characters"
+                               class="w-full px-4 py-3.5 text-lg font-mono font-bold tracking-widest text-center uppercase border-2 border-royal-purple-200 rounded-2xl focus:border-royal-purple-800 focus:ring-4 focus:ring-royal-purple-800/20 focus:outline-none transition text-royal-purple-900 bg-magnolia-50">
+                        <p class="text-[11px] text-cloud-burst-800 mt-1 text-center font-medium">Digite o código completo iniciado por <b>ALU-</b> que apareceu na sua tela.</p>
+                    </div>
 
-                <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-base shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
-                    <span>Continuar de Onde Parei</span>
-                    <x-lucide-arrow-right class="w-4 h-4" />
-                </button>
-            </form>
+                    <button type="submit" class="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-base shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                        <span>Continuar de Onde Parei</span>
+                        <x-lucide-arrow-right class="w-4 h-4" />
+                    </button>
+                </form>
+            </div>
 
             <div class="pt-4 border-t border-magnolia-200 text-center">
                 <a href="{{ route('login') }}" class="cursor-pointer inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-xs font-bold font-heading text-royal-purple-900 bg-royal-purple-50 hover:bg-royal-purple-100 border border-royal-purple-200 transition shadow-2xs">
@@ -130,7 +134,7 @@
                 </a>
             </div>
         </div>
-    </div>
+    </main>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {

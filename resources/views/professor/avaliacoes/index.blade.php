@@ -30,9 +30,42 @@
                         @forelse($assessments as $item)
                             <tr class="hover:bg-royal-purple-50/30 transition">
                                 <td class="py-4 px-6 font-bold font-heading text-cloud-burst-950">
-                                    {{ $item->title }}
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span>{{ $item->title }}</span>
+                                        @if($item->academic_period)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold font-heading bg-sky-blue-100 text-sky-blue-900 border border-sky-blue-200">
+                                                {{ $item->academic_period }}
+                                            </span>
+                                        @endif
+                                    </div>
                                     @if($item->description)
                                         <p class="text-xs text-cloud-burst-600 font-normal mt-0.5">{{ $item->description }}</p>
+                                    @endif
+
+                                    @if($item->classrooms->isNotEmpty())
+                                        <details class="mt-2 text-xs group font-sans font-normal">
+                                            <summary class="cursor-pointer text-royal-purple-800 hover:text-royal-purple-900 hover:underline font-semibold flex items-center gap-1 select-none">
+                                                <x-lucide-chevron-right class="w-3.5 h-3.5 transition group-open:rotate-90 text-royal-purple-600 shrink-0" />
+                                                <span>Ver salas aplicadas ({{ $item->classrooms->count() }})</span>
+                                            </summary>
+                                            <div class="mt-2 pl-3 border-l-2 border-royal-purple-200 space-y-1.5 py-1">
+                                                @foreach($item->classrooms as $room)
+                                                    <div class="flex flex-wrap items-center justify-between gap-2 py-1 border-b border-magnolia-100 last:border-0 text-[11px]">
+                                                        <div class="flex items-center gap-1.5">
+                                                            <a href="{{ route('professor.salas.show', $room) }}" class="font-bold text-cloud-burst-900 hover:text-royal-purple-800 hover:underline">
+                                                                {{ $room->name }}
+                                                            </a>
+                                                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-magnolia-100 text-cloud-burst-700">{{ $room->code }}</span>
+                                                        </div>
+                                                        <div class="flex flex-wrap items-center gap-2 text-cloud-burst-600">
+                                                            <span>Criada: <strong class="text-cloud-burst-900">{{ $room->created_at->format('d/m/Y') }}</strong></span>
+                                                            <span>•</span>
+                                                            <span>Aplicação: <strong class="text-royal-purple-900 font-semibold">{{ $room->applicationDateFormatted() }}</strong></span>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </details>
                                     @endif
                                 </td>
                                 <td class="py-4 px-6">

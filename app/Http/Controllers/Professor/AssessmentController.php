@@ -21,6 +21,11 @@ class AssessmentController extends Controller
     {
         $assessments = Auth::user()->assessments()
             ->withCount(['questions', 'classrooms'])
+            ->with(['classrooms' => function ($query) {
+                $query->with(['studentAttempts' => function ($q) {
+                    $q->select('id', 'classroom_id', 'started_at', 'completed_at');
+                }])->latest();
+            }])
             ->latest()
             ->paginate(10);
 
@@ -46,6 +51,7 @@ class AssessmentController extends Controller
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'academic_period' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
             'question_ids' => ['required', 'array', 'min:1'],
             'question_ids.*' => ['required'],
@@ -66,6 +72,7 @@ class AssessmentController extends Controller
         $assessment = Assessment::create([
             'user_id' => Auth::id(),
             'title' => $validated['title'],
+            'academic_period' => $validated['academic_period'] ?? null,
             'description' => $validated['description'] ?? null,
         ]);
 
@@ -106,6 +113,7 @@ class AssessmentController extends Controller
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'academic_period' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
             'question_ids' => ['required', 'array', 'min:1'],
             'question_ids.*' => ['required'],
@@ -125,6 +133,7 @@ class AssessmentController extends Controller
 
         $avaliacao->update([
             'title' => $validated['title'],
+            'academic_period' => $validated['academic_period'] ?? null,
             'description' => $validated['description'] ?? null,
         ]);
 
@@ -194,6 +203,8 @@ class AssessmentController extends Controller
                 'id' => $classroom->uuid,
                 'name' => $classroom->name,
                 'code' => $classroom->code,
+                'created_at' => $classroom->created_at?->format('d/m/Y') ?? '—',
+                'application_date' => $classroom->applicationDateFormatted(),
                 'attempts_count' => $attemptsCount,
                 'total_correct' => $totalCorrect,
                 'avg_correct' => $avgCorrect,

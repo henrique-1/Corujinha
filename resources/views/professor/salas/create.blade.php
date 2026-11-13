@@ -43,7 +43,7 @@
                             <option value="" data-questions-count="0">Selecione uma avaliação...</option>
                             @foreach($assessments as $av)
                                 <option value="{{ $av->uuid }}" data-questions-count="{{ $av->questions_count }}" {{ old('assessment_id') == $av->uuid ? 'selected' : '' }}>
-                                    {{ $av->title }} ({{ $av->questions_count }} questões)
+                                    {{ $av->title }}@if($av->academic_period) · {{ $av->academic_period }}@endif ({{ $av->questions_count }} questões)
                                 </option>
                             @endforeach
                         </select>

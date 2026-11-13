@@ -1,17 +1,15 @@
-import './echo';
 import { initDialogSystem } from './dialog-modal';
-import { initClassroomPlayer } from './classroom-player';
-import { initQuestionHighlighter } from './question-highlighter';
-import { initClassroomMonitor } from './classroom-monitor';
-import { initProfessorsMonitor } from './professors-monitor';
-import { initClassroomsListMonitor } from './classrooms-list-monitor';
-import { initPasskeyLogin, initPasskeyRegister } from './passkey-auth';
 
 document.addEventListener('DOMContentLoaded', () => {
     initDialogSystem();
 
     if (window.__CLASSROOM_DATA__) {
-        initClassroomPlayer();
+        Promise.all([
+            import('./echo'),
+            import('./classroom-player'),
+        ]).then(([, { initClassroomPlayer }]) => {
+            initClassroomPlayer();
+        });
     }
 
     if (document.getElementById('support-text-editor')) {
@@ -21,26 +19,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (document.getElementById('preview-support-text')) {
-        initQuestionHighlighter();
+        import('./question-highlighter').then(({ initQuestionHighlighter }) => {
+            initQuestionHighlighter();
+        });
     }
 
     if (window.__CLASSROOM_MONITOR__) {
-        initClassroomMonitor();
+        Promise.all([
+            import('./echo'),
+            import('./classroom-monitor'),
+        ]).then(([, { initClassroomMonitor }]) => {
+            initClassroomMonitor();
+        });
     }
 
     if (document.getElementById('professores-table-body')) {
-        initProfessorsMonitor();
+        Promise.all([
+            import('./echo'),
+            import('./professors-monitor'),
+        ]).then(([, { initProfessorsMonitor }]) => {
+            initProfessorsMonitor();
+        });
     }
 
     if (window.__CLASSROOMS_LIST_CONFIG__) {
-        initClassroomsListMonitor();
+        Promise.all([
+            import('./echo'),
+            import('./classrooms-list-monitor'),
+        ]).then(([, { initClassroomsListMonitor }]) => {
+            initClassroomsListMonitor();
+        });
+    }
+
+    if (document.getElementById('classroom-closed-modal')) {
+        import('./echo');
     }
 
     if (document.getElementById('btn-login-passkey')) {
-        initPasskeyLogin();
+        import('./passkey-auth').then(({ initPasskeyLogin }) => {
+            initPasskeyLogin();
+        });
     }
 
     if (document.getElementById('btn-register-passkey')) {
-        initPasskeyRegister();
+        import('./passkey-auth').then(({ initPasskeyRegister }) => {
+            initPasskeyRegister();
+        });
     }
 });

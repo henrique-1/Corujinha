@@ -18,6 +18,7 @@ class Assessment extends Model
         'user_id',
         'title',
         'description',
+        'academic_period',
     ];
 
     protected $hidden = [

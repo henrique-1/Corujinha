@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class Classroom extends Model
@@ -92,6 +93,69 @@ class Classroom extends Model
         $this->update(['is_active' => false]);
 
         return true;
+    }
+
+    /**
+     * Retorna os limites (data de início mais antiga e término mais recente) da aplicação da sala.
+     *
+     * @return array{start: ?Carbon, end: ?Carbon}
+     */
+    public function applicationDateRange(): array
+    {
+        if ($this->relationLoaded('studentAttempts')) {
+            $attempts = $this->studentAttempts;
+            $dates = collect();
+            foreach ($attempts as $attempt) {
+                if ($attempt->started_at) {
+                    $dates->push($attempt->started_at);
+                }
+                if ($attempt->completed_at) {
+                    $dates->push($attempt->completed_at);
+                }
+            }
+
+            if ($dates->isEmpty()) {
+                return ['start' => null, 'end' => null];
+            }
+
+            return [
+                'start' => $dates->min(),
+                'end' => $dates->max(),
+            ];
+        }
+
+        $minStart = $this->studentAttempts()->whereNotNull('started_at')->min('started_at');
+        $maxEnd = $this->studentAttempts()->whereNotNull('completed_at')->max('completed_at')
+            ?? $this->studentAttempts()->whereNotNull('started_at')->max('started_at');
+
+        return [
+            'start' => $minStart ? Carbon::parse($minStart) : null,
+            'end' => $maxEnd ? Carbon::parse($maxEnd) : null,
+        ];
+    }
+
+    /**
+     * Retorna a data de aplicação formatada:
+     * - Se não houver tentativas: "Não aplicada"
+     * - Se as tentativas foram no mesmo dia: "DD/MM/YYYY"
+     * - Se as tentativas foram em dias diferentes: "DD/MM/YYYY até DD/MM/YYYY"
+     */
+    public function applicationDateFormatted(): string
+    {
+        $range = $this->applicationDateRange();
+
+        if (! $range['start'] && ! $range['end']) {
+            return 'Não aplicada';
+        }
+
+        $start = $range['start'] ?? $range['end'];
+        $end = $range['end'] ?? $range['start'];
+
+        if ($start->isSameDay($end)) {
+            return $start->format('d/m/Y');
+        }
+
+        return $start->format('d/m/Y').' até '.$end->format('d/m/Y');
     }
 
     /**
