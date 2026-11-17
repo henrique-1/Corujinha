@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\EmailChangeRequest;
+use App\Models\TeachingArea;
 use App\Notifications\ConfirmCurrentEmailChangeNotification;
 use App\Notifications\ConfirmNewEmailNotification;
 use App\Services\TotpService;
@@ -35,6 +36,7 @@ class ProfileController extends Controller
         $totpUri = $pendingSecret ? $totpService->getOtpAuthUrl($user->name, $user->email, $pendingSecret) : null;
         $totpQrSvg = $totpUri ? $totpService->generateQrCodeSvg($totpUri) : null;
         $activeTab = $request->query('tab', 'dados');
+        $suggestedAreas = TeachingArea::orderBy('name')->pluck('name');
 
         return view('profile.edit', compact(
             'user',
@@ -42,12 +44,13 @@ class ProfileController extends Controller
             'pendingSecret',
             'totpUri',
             'totpQrSvg',
-            'activeTab'
+            'activeTab',
+            'suggestedAreas'
         ));
     }
 
     /**
-     * Atualiza dados cadastrais do perfil (Nome e Instituição).
+     * Atualiza dados cadastrais do perfil (Nome, Instituição e Áreas de Atuação).
      * O CPF é um dado institucional protegido e não pode ser alterado.
      */
     public function update(Request $request): RedirectResponse
@@ -55,6 +58,8 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:255'],
             'institution' => ['nullable', 'string', 'max:256'],
+            'teaching_areas' => ['nullable', 'array'],
+            'teaching_areas.*' => ['string', 'max:100'],
         ], [
             'name.required' => 'Informe o seu nome completo.',
             'name.min' => 'O nome deve ter pelo menos 3 caracteres.',
@@ -68,6 +73,17 @@ class ProfileController extends Controller
                 ? trim($validated['institution'])
                 : null,
         ]);
+
+        $rawAreas = (array) $request->input('teaching_areas', []);
+        $areaIds = [];
+        foreach ($rawAreas as $areaName) {
+            $trimmed = trim((string) $areaName);
+            if ($trimmed !== '') {
+                $teachingArea = TeachingArea::firstOrCreate(['name' => $trimmed]);
+                $areaIds[] = $teachingArea->id;
+            }
+        }
+        $user->teachingAreas()->sync($areaIds);
 
         return redirect()->route('profile.edit')
             ->with('success', 'Dados do perfil atualizados com sucesso!');

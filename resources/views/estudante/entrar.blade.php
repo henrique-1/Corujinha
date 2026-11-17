@@ -159,7 +159,30 @@
                 }
 
                 if (!deviceId) {
-                    deviceId = 'dev_' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2, 12)));
+                    // Geração de UUID v7 (ordenado por timestamp Unix com entropia RFC 9562)
+                    const generateUuidV7 = () => {
+                        const bytes = new Uint8Array(16);
+                        if (window.crypto && crypto.getRandomValues) {
+                            crypto.getRandomValues(bytes);
+                        } else {
+                            for (let i = 0; i < 16; i++) {
+                                bytes[i] = Math.floor(Math.random() * 256);
+                            }
+                        }
+                        const now = Date.now();
+                        bytes[0] = Math.floor(now / 0x10000000000) & 0xff;
+                        bytes[1] = Math.floor(now / 0x100000000) & 0xff;
+                        bytes[2] = Math.floor(now / 0x1000000) & 0xff;
+                        bytes[3] = Math.floor(now / 0x10000) & 0xff;
+                        bytes[4] = Math.floor(now / 0x100) & 0xff;
+                        bytes[5] = now & 0xff;
+                        bytes[6] = (bytes[6] & 0x0f) | 0x70; // Versão 7
+                        bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variante RFC 9562
+                        const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+                    };
+
+                    deviceId = 'dev_' + generateUuidV7();
                     try {
                         localStorage.setItem(key, deviceId);
                     } catch (e) {}

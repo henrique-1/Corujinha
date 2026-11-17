@@ -52,6 +52,15 @@
                             @if($user->institution)
                                 <p class="text-xs text-cloud-burst-700 font-medium mt-1">{{ $user->institution }}</p>
                             @endif
+                            @if($user->teachingAreas->isNotEmpty())
+                                <div class="flex flex-wrap gap-1 justify-center pt-2">
+                                    @foreach($user->teachingAreas as $area)
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-royal-purple-50 text-royal-purple-800 border border-royal-purple-200">
+                                            {{ $area->name }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
 
                         {{-- Form de Upload de Foto --}}
@@ -110,6 +119,53 @@
                                 <input id="institution" name="institution" type="text" maxlength="256" value="{{ old('institution', $user->institution) }}" placeholder="Ex: Escola Estadual Modelo"
                                        class="w-full px-4 py-2.5 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-200 focus:outline-none transition bg-white">
                                 <p class="text-[11px] text-cloud-burst-600 mt-1">Até 256 caracteres.</p>
+                            </div>
+
+                            {{-- Áreas de Atuação / Disciplinas --}}
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider">
+                                    Disciplinas / Áreas de Atuação
+                                </label>
+                                <p class="text-[11px] text-cloud-burst-600">Selecione as disciplinas que você leciona ou adicione outras digitando abaixo:</p>
+
+                                <div id="areas-chips-container" class="flex flex-wrap gap-1.5 pt-1">
+                                    @php
+                                        $activeAreas = old('teaching_areas', $user->teachingAreas->pluck('name')->all());
+                                        $mergedSuggested = collect($suggestedAreas ?? [])->merge($activeAreas)->unique();
+                                    @endphp
+                                    @foreach($mergedSuggested as $area)
+                                        @php
+                                            $isSelected = in_array($area, $activeAreas, true);
+                                        @endphp
+                                        <button type="button"
+                                                data-area="{{ $area }}"
+                                                class="area-chip cursor-pointer text-xs font-bold font-heading px-3 py-1.5 rounded-full border transition flex items-center gap-1.5 {{ $isSelected ? 'bg-royal-purple-800 text-white border-royal-purple-800' : 'bg-white text-cloud-burst-800 border-magnolia-300 hover:border-royal-purple-600' }}">
+                                            <span>{{ $area }}</span>
+                                            <span class="chip-icon inline-flex items-center">
+                                                @if($isSelected)
+                                                    <x-lucide-check class="w-3.5 h-3.5" />
+                                                @else
+                                                    <x-lucide-plus class="w-3.5 h-3.5" />
+                                                @endif
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+
+                                <div class="flex items-center gap-2 pt-1">
+                                    <input type="text" id="custom-area-input" placeholder="Outra disciplina (ex.: Robótica, Artes, Espanhol...)"
+                                           class="grow px-3.5 py-2 text-xs border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none bg-white">
+                                    <button type="button" id="btn-add-custom-area"
+                                            class="cursor-pointer px-4 py-2 text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-900 hover:bg-royal-purple-200 border border-royal-purple-200 rounded-xl transition">
+                                        + Adicionar
+                                    </button>
+                                </div>
+
+                                <div id="hidden-areas-inputs">
+                                    @foreach($activeAreas as $activeArea)
+                                        <input type="hidden" name="teaching_areas[]" value="{{ $activeArea }}" data-area="{{ $activeArea }}">
+                                    @endforeach
+                                </div>
                             </div>
 
                             <div>
@@ -365,6 +421,89 @@
                     } catch (e) {}
                 });
             });
+
+            // Gerenciamento de Áreas de Atuação / Disciplinas
+            const chipsContainer = document.getElementById('areas-chips-container');
+            const hiddenInputsContainer = document.getElementById('hidden-areas-inputs');
+            const customInput = document.getElementById('custom-area-input');
+            const btnAddCustom = document.getElementById('btn-add-custom-area');
+
+            const iconCheckSvg = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+            const iconPlusSvg = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`;
+
+            function toggleArea(name, buttonEl) {
+                const existingInput = hiddenInputsContainer.querySelector(`input[data-area="${name}"]`);
+                if (existingInput) {
+                    existingInput.remove();
+                    buttonEl.className = 'area-chip cursor-pointer text-xs font-bold font-heading px-3 py-1.5 rounded-full border transition flex items-center gap-1.5 bg-white text-cloud-burst-800 border-magnolia-300 hover:border-royal-purple-600';
+                    const icon = buttonEl.querySelector('.chip-icon');
+                    if (icon) icon.innerHTML = iconPlusSvg;
+                } else {
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'teaching_areas[]';
+                    inp.value = name;
+                    inp.setAttribute('data-area', name);
+                    hiddenInputsContainer.appendChild(inp);
+
+                    buttonEl.className = 'area-chip cursor-pointer text-xs font-bold font-heading px-3 py-1.5 rounded-full border transition flex items-center gap-1.5 bg-royal-purple-800 text-white border-royal-purple-800';
+                    const icon = buttonEl.querySelector('.chip-icon');
+                    if (icon) icon.innerHTML = iconCheckSvg;
+                }
+            }
+
+            if (chipsContainer) {
+                chipsContainer.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.area-chip');
+                    if (!btn) return;
+                    e.preventDefault();
+                    toggleArea(btn.getAttribute('data-area'), btn);
+                });
+            }
+
+            function addCustomArea() {
+                if (!customInput) return;
+                const val = customInput.value.trim();
+                if (!val) return;
+
+                let existingBtn = chipsContainer.querySelector(`button[data-area="${val}"]`);
+                if (existingBtn) {
+                    if (!hiddenInputsContainer.querySelector(`input[data-area="${val}"]`)) {
+                        toggleArea(val, existingBtn);
+                    }
+                } else {
+                    const newBtn = document.createElement('button');
+                    newBtn.type = 'button';
+                    newBtn.setAttribute('data-area', val);
+                    newBtn.className = 'area-chip cursor-pointer text-xs font-bold font-heading px-3 py-1.5 rounded-full border transition flex items-center gap-1.5 bg-royal-purple-800 text-white border-royal-purple-800';
+                    newBtn.innerHTML = `<span>${val}</span><span class="chip-icon inline-flex items-center">${iconCheckSvg}</span>`;
+                    chipsContainer.appendChild(newBtn);
+
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'teaching_areas[]';
+                    inp.value = val;
+                    inp.setAttribute('data-area', val);
+                    hiddenInputsContainer.appendChild(inp);
+                }
+                customInput.value = '';
+            }
+
+            if (btnAddCustom) {
+                btnAddCustom.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    addCustomArea();
+                });
+            }
+
+            if (customInput) {
+                customInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomArea();
+                    }
+                });
+            }
         });
     </script>
 </x-layouts.admin>

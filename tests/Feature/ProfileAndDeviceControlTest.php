@@ -67,6 +67,35 @@ test('instituicao de atuacao deve aceitar ate 256 caracteres e falhar acima diss
     $responseInvalid->assertSessionHasErrors(['institution']);
 });
 
+test('professor pode atualizar suas areas de atuacao no perfil', function () {
+    $user = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+
+    $response = $this->actingAs($user)->patch(route('profile.update'), [
+        'name' => 'Professor Carlos',
+        'institution' => 'Colégio Alpha',
+        'teaching_areas' => ['Matemática', 'Física', 'Robótica'],
+    ]);
+
+    $response->assertRedirect(route('profile.edit'))
+        ->assertSessionHas('success');
+
+    $areas = $user->fresh()->teachingAreas->pluck('name')->all();
+    sort($areas);
+    expect($areas)->toBe(['Física', 'Matemática', 'Robótica']);
+
+    // Atualiza removendo uma e adicionando outra
+    $response2 = $this->actingAs($user)->patch(route('profile.update'), [
+        'name' => 'Professor Carlos',
+        'institution' => 'Colégio Alpha',
+        'teaching_areas' => ['Matemática', 'Química'],
+    ]);
+
+    $response2->assertRedirect(route('profile.edit'));
+    $updatedAreas = $user->fresh()->teachingAreas->pluck('name')->all();
+    sort($updatedAreas);
+    expect($updatedAreas)->toBe(['Matemática', 'Química']);
+});
+
 test('professor pode fazer upload e exclusao de foto de perfil', function () {
     Storage::fake('public');
 
