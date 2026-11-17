@@ -49,6 +49,7 @@
             <div id="panel-new" role="tabpanel" aria-labelledby="tab-new" class="{{ $resumeActive ? 'hidden' : '' }}">
                 <form action="{{ route('estudante.iniciar') }}" method="POST" class="space-y-4">
                     @csrf
+                    <input type="hidden" id="device_identifier" name="device_identifier" class="device-identifier-field" value="">
 
                     <div>
                         <label for="code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
@@ -99,6 +100,7 @@
             <div id="panel-resume" role="tabpanel" aria-labelledby="tab-resume" class="{{ $resumeActive ? '' : 'hidden' }}">
                 <form action="{{ route('estudante.retomar') }}" method="POST" class="space-y-4">
                     @csrf
+                    <input type="hidden" name="device_identifier" class="device-identifier-field" value="">
 
                     <div>
                         <label for="resume_code" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
@@ -138,6 +140,37 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Identificador persistente do dispositivo (UUID / Fingerprint de hardware escolar)
+            (function setupDeviceIdentifier() {
+                const key = 'corujinha_device_id';
+                let deviceId = null;
+
+                try {
+                    deviceId = localStorage.getItem(key);
+                } catch (e) {
+                    // Fallback se localStorage estiver bloqueado
+                }
+
+                if (!deviceId) {
+                    const cookieMatch = document.cookie.match(new RegExp('(?:^|; )' + key + '=([^;]*)'));
+                    if (cookieMatch) {
+                        deviceId = decodeURIComponent(cookieMatch[1]);
+                    }
+                }
+
+                if (!deviceId) {
+                    deviceId = 'dev_' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2, 12)));
+                    try {
+                        localStorage.setItem(key, deviceId);
+                    } catch (e) {}
+                    document.cookie = key + '=' + encodeURIComponent(deviceId) + '; path=/; max-age=31536000; SameSite=Lax';
+                }
+
+                document.querySelectorAll('.device-identifier-field').forEach((input) => {
+                    input.value = deviceId;
+                });
+            })();
+
             // Formatação do código da sala: AVAL-XXXXXX
             document.querySelectorAll('[data-room-code]').forEach((input) => {
                 input.addEventListener('input', (e) => {

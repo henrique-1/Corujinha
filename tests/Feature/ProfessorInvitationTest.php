@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\TeachingArea;
 use App\Models\User;
 use App\Notifications\ProfessorInviteNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -126,4 +127,112 @@ test('super-usuário não pode remover convite de um professor que já ativou a 
 
     $response->assertSessionHas('error');
     expect(User::where('email', 'ativo@sesi.org.br')->exists())->toBeTrue();
+});
+
+test('super-usuário não visualiza o CPF dos professores na lista de professores', function () {
+    $admin = User::factory()->create([
+        'role' => 'super_admin',
+        'status' => 'active',
+    ]);
+
+    $professor = User::factory()->create([
+        'role' => 'professor',
+        'status' => 'active',
+        'cpf' => '52998224725',
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('admin.professores.index'));
+
+    $response->assertOk();
+    $response->assertDontSee('529.982.247-25');
+    $response->assertDontSee('52998224725');
+    $response->assertDontSee('<th>CPF</th>', false);
+});
+
+test('professor finaliza cadastro selecionando disciplinas sugeridas e adicionando nova área', function () {
+    $professor = User::create([
+        'name' => 'Marcos Vinicius',
+        'email' => 'marcos.vinicius@sesi.org.br',
+        'role' => 'professor',
+        'status' => 'pending',
+        'invitation_token' => 'token-areas-12345',
+        'invitation_sent_at' => now(),
+    ]);
+
+    $response = $this->post(route('invitation.accept', ['token' => 'token-areas-12345']), [
+        'cpf' => '529.982.247-25',
+        'teaching_areas' => ['Matemática', 'Física', 'Robótica Avançada'],
+        'password' => 'MinhaSenhaProfessor2026!Forte',
+        'password_confirmation' => 'MinhaSenhaProfessor2026!Forte',
+    ]);
+
+    $response->assertRedirect(route('security.passkey.suggestion'));
+
+    $professor->refresh();
+
+    expect($professor->status)->toBe('active')
+        ->and($professor->teachingAreas)->toHaveCount(3)
+        ->and($professor->teachingAreas->pluck('name')->all())->toContain('Matemática', 'Física', 'Robótica Avançada');
+});
+
+test('super-usuário visualiza a coluna de área de atuação na lista de professores', function () {
+    $admin = User::factory()->create([
+        'role' => 'super_admin',
+        'status' => 'active',
+    ]);
+
+    $profComArea = User::factory()->create([
+        'name' => 'Professora de História',
+        'email' => 'historia@exemplo.com',
+        'role' => 'professor',
+        'status' => 'active',
+    ]);
+    $areaHistoria = TeachingArea::firstOrCreate(['name' => 'História']);
+    $areaFilosofia = TeachingArea::firstOrCreate(['name' => 'Filosofia']);
+    $profComArea->teachingAreas()->attach([$areaHistoria->id, $areaFilosofia->id]);
+
+    $profSemArea = User::factory()->create([
+        'name' => 'Professor Sem Disciplina',
+        'email' => 'sem.disciplina@exemplo.com',
+        'role' => 'professor',
+        'status' => 'pending',
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('admin.professores.index'));
+
+    $response->assertOk();
+    $response->assertSee('Área de Atuação');
+    $response->assertSee('Professora de História');
+    $response->assertSee('História');
+    $response->assertSee('Filosofia');
+    $response->assertSee('Professor Sem Disciplina');
+});
+
+test('professor pode informar sua instituicao de atuacao ao completar o cadastro', function () {
+    $professor = User::create([
+        'name' => 'Professor Ativacao Instituicao',
+        'email' => 'ativacao.inst@exemplo.com',
+        'role' => 'professor',
+        'status' => 'pending',
+        'invitation_token' => 'token-com-instituicao',
+        'invitation_sent_at' => now(),
+    ]);
+
+    $viewResponse = $this->get(route('invitation.accept', 'token-com-instituicao'));
+    $viewResponse->assertOk()
+        ->assertSee('Instituição onde Atua')
+        ->assertDontSee('Unidade SESI');
+
+    $response = $this->post(route('invitation.accept', 'token-com-instituicao'), [
+        'cpf' => '52998224725',
+        'institution' => 'Colégio de Aplicação Experimental',
+        'password' => 'MinhaSenhaForte2026!Com15Chars',
+        'password_confirmation' => 'MinhaSenhaForte2026!Com15Chars',
+    ]);
+
+    $response->assertRedirect(route('security.passkey.suggestion'));
+
+    $professor->refresh();
+    expect($professor->status)->toBe('active')
+        ->and($professor->institution)->toBe('Colégio de Aplicação Experimental');
 });

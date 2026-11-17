@@ -35,6 +35,16 @@
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-broom-100 text-broom-950 border border-broom-300">
                     <span>Turma:</span> <span>{{ $classroom->code }}</span>
                 </span>
+                @if($classroom->isCorujao())
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-shocking-pink-100 text-shocking-pink-900 border border-shocking-pink-300 shadow-2xs" title="Modo Corujão: O cronômetro é rígido e avança automaticamente ao zerar">
+                        <picture class="shrink-0 flex items-center">
+                            <source srcset="{{ asset('images/logo/CORUJAO_ICONE.avif') }}" type="image/avif">
+                            <source srcset="{{ asset('images/logo/CORUJAO_ICONE.webp') }}" type="image/webp">
+                            <img src="{{ asset('images/logo/CORUJAO_300_DPI.png') }}" alt="Modo Corujão" class="w-4 h-4 object-contain">
+                        </picture>
+                        <span>Modo Corujão</span>
+                    </span>
+                @endif
                 {{-- Código de Retomada do Aluno --}}
                 <div class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-bold bg-sky-blue-50 text-sky-blue-950 border border-sky-blue-300 shadow-2xs" title="Anote este código para voltar de onde parou em outra aula">
                     <x-lucide-key class="w-3.5 h-3.5 text-sky-blue-700 shrink-0" />
@@ -96,16 +106,65 @@
                         <p class="text-xs font-bold font-heading tracking-wider text-royal-purple-800 mb-3 uppercase">
                             COMANDO DA QUESTÃO
                         </p>
-                        <p id="prompt" class="text-lg md:text-xl font-bold font-heading text-cloud-burst-950 leading-snug mb-5 select-text"></p>
-                        <div id="options" class="flex flex-col gap-2.5"></div>
+                        <p id="prompt" class="text-lg md:text-xl font-bold font-heading text-cloud-burst-950 leading-snug mb-5 select-text" data-math></p>
 
-                        {{-- 3. Justificativa posicionada imediatamente abaixo das alternativas --}}
-                        <div class="mt-6 pt-5 border-t border-magnolia-200">
-                            <label for="reason" class="text-sm font-bold font-heading text-cloud-burst-950 block mb-1.5">
-                                3. Justificativa da alternativa escolhida <span class="text-shocking-pink-600">*</span>
-                            </label>
-                            <textarea id="reason" rows="2" placeholder="Escolhi a alternativa ___ porque a pista “___” mostra que..."
-                                      class="w-full px-3.5 py-2.5 text-sm text-cloud-burst-950 border border-magnolia-300 rounded-xl resize-y focus-visible:outline-3 focus-visible:outline-royal-purple-800 bg-magnolia-50/50"></textarea>
+                        {{-- Modo Múltipla Escolha: Alternativas A-E --}}
+                        <div id="multiple-choice-container">
+                            <div id="options" class="flex flex-col gap-2.5"></div>
+
+                            {{-- 3. Justificativa posicionada imediatamente abaixo das alternativas --}}
+                            <div id="reason-container" class="mt-6 pt-5 border-t border-magnolia-200">
+                                <label for="reason" class="text-sm font-bold font-heading text-cloud-burst-950 block mb-1.5">
+                                    3. Justificativa da alternativa escolhida <span class="text-shocking-pink-600">*</span>
+                                </label>
+                                <textarea id="reason" rows="2" placeholder="Escolhi a alternativa ___ porque a pista “___” mostra que..."
+                                          class="w-full px-3.5 py-2.5 text-sm text-cloud-burst-950 border border-magnolia-300 rounded-xl resize-y focus-visible:outline-3 focus-visible:outline-royal-purple-800 bg-magnolia-50/50"></textarea>
+                            </div>
+                        </div>
+
+                        {{-- Modo Resposta Direta / Matemática: Campo de Resposta + Foto da Resolução --}}
+                        <div id="direct-input-container" class="hidden space-y-5">
+                            <div>
+                                <label for="direct-answer" class="text-sm font-bold font-heading text-cloud-burst-950 block mb-1.5 flex items-center justify-between">
+                                    <span>Sua Resposta (Número, Expressão ou Fórmula) <span class="text-shocking-pink-600">*</span></span>
+                                    <span class="text-xs font-normal text-cloud-burst-600">Use os botões de atalho abaixo</span>
+                                </label>
+                                <x-math-toolbar target-id="direct-answer" class="mb-2" />
+                                <input type="text" id="direct-answer" placeholder="Digite sua resposta aqui (ex.: 15, \frac{3}{4}, x = 5)..."
+                                       class="w-full px-4 py-3 text-base border border-magnolia-300 rounded-xl font-mono focus:border-royal-purple-800 focus:outline-none bg-white">
+                                <div id="direct-answer-preview" class="mt-2 p-3 bg-magnolia-50/70 border border-magnolia-200 rounded-xl text-sm" data-math></div>
+                            </div>
+
+                            {{-- Upload da Foto da Resolução --}}
+                            <div class="p-4 bg-royal-purple-50/60 border border-royal-purple-200 rounded-2xl space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="text-xs font-bold font-heading text-royal-purple-950 block">Foto da Resolução (Cálculos no Papel)</span>
+                                        <span class="text-[11px] text-cloud-burst-700">Tire uma foto ou anexe uma imagem da sua folha de resolução</span>
+                                    </div>
+                                    <span class="text-[11px] font-bold text-royal-purple-800 bg-royal-purple-100 px-2.5 py-0.5 rounded-full border border-royal-purple-200">Opcional</span>
+                                </div>
+
+                                <input type="file" id="resolution-image-input" accept="image/*" capture="environment" class="hidden">
+
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    <button type="button" id="btn-trigger-upload"
+                                            class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-royal-purple-300 bg-white hover:bg-royal-purple-50 text-royal-purple-900 text-xs font-bold font-heading transition shadow-2xs">
+                                        <x-lucide-camera class="w-4 h-4 text-royal-purple-700" />
+                                        <span id="upload-btn-text">Tirar Foto / Enviar Imagem</span>
+                                    </button>
+
+                                    <div id="resolution-preview-container" class="hidden flex items-center gap-2.5 p-1.5 bg-white rounded-xl border border-magnolia-200 shadow-2xs">
+                                        <img id="resolution-preview-img" src="" alt="Resolução" class="w-12 h-12 object-cover rounded-lg border border-magnolia-200">
+                                        <div class="pr-2">
+                                            <span class="text-xs font-bold font-heading text-emerald-700 block">Foto anexada!</span>
+                                            <button type="button" id="btn-remove-resolution" class="cursor-pointer text-[11px] text-rose-600 hover:underline font-bold">
+                                                Remover foto
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </article>
                 </div>
@@ -151,7 +210,7 @@
             </section>
 
             {{-- Color Palette Card --}}
-            <section class="bg-white rounded-2xl p-5 border border-magnolia-200 shadow-xs">
+            <section id="highlighter-card" class="bg-white rounded-2xl p-5 border border-magnolia-200 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-xs font-bold font-heading text-cloud-burst-800 uppercase tracking-wider m-0">
                         FAIXAS COLORIDAS · MARCA-TEXTO
@@ -273,13 +332,47 @@
     {{-- Toast Notification --}}
     <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-royal-purple-950 text-white text-sm px-5 py-3 rounded-xl shadow-lg max-w-[90vw] transition-all"></div>
 
+    {{-- Modal de Alerta: Saída da Aba de Resolução Detectada --}}
+    <div id="modal-tab-switch-alert" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-cloud-burst-950/70 backdrop-blur-xs select-none">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-amber-400 text-center space-y-4">
+            <div class="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-inner">
+                <x-lucide-alert-triangle class="w-8 h-8 text-amber-600 animate-pulse" />
+            </div>
+
+            <div class="space-y-2">
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold font-heading bg-amber-100 text-amber-900 border border-amber-300">
+                    Aviso de Integridade
+                </span>
+                <h3 class="text-lg font-extrabold font-heading text-cloud-burst-950">
+                    Saída da Prova Detectada!
+                </h3>
+                <p class="text-xs text-cloud-burst-800 leading-relaxed">
+                    Identificamos que você saiu da tela da avaliação (trocou de aba, minimizou ou abriu outro aplicativo).
+                </p>
+                <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold font-heading text-amber-950">
+                    Esta ocorrência foi registrada para o seu professor.
+                    <span class="block text-sm text-royal-purple-900 mt-1">Total de saídas registradas: <strong id="modal-tab-switch-counter">1</strong></span>
+                </div>
+            </div>
+
+            <button type="button" id="btn-dismiss-tab-switch-alert"
+                    class="cursor-pointer w-full py-3 px-4 rounded-xl bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-sm shadow-md transition flex items-center justify-center gap-2">
+                <x-lucide-check-circle class="w-4 h-4" />
+                <span>Entendi e Voltar à Prova</span>
+            </button>
+        </div>
+    </div>
+
     {{-- Injeta dados e inicializador do Player --}}
     <script>
         window.__CLASSROOM_DATA__ = {
             broadcastKey: @json($classroom->broadcast_key),
             code: @json($classroom->code),
+            gameMode: @json($classroom->game_mode ?? 'corujinha'),
             saveUrl: @json(route('estudante.salvar_resposta', $classroom->code)),
+            recordTabSwitchUrl: @json(route('estudante.registrar_saida', $classroom->code)),
             finishUrl: @json(route('estudante.concluir_atividade', $classroom->code)),
+            tabSwitchesCount: @json((int) ($attempt->tab_switches_count ?? 0)),
             questions: @json($questionsData),
             collectiveReviewEnabled: @json($classroom->collective_review_enabled),
             isTeacherPreview: @json($isTeacherPreview ?? false),

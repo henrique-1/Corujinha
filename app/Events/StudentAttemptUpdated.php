@@ -54,6 +54,8 @@ class StudentAttemptUpdated implements ShouldBroadcastNow
                 'id' => $this->attempt->uuid,
                 'status' => $this->attempt->status,
                 'score' => $this->attempt->score,
+                'is_device_authorized' => (bool) $this->attempt->is_device_authorized,
+                'tab_switches_count' => (int) $this->attempt->tab_switches_count,
                 'reviewed_at' => $this->attempt->reviewed_at?->format('d/m/Y H:i'),
                 'completed_at' => $this->attempt->completed_at?->format('d/m/Y H:i'),
             ],

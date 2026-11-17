@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Events\ProfessorListUpdated;
 use App\Http\Controllers\Controller;
+use App\Models\TeachingArea;
 use App\Models\User;
 use App\Rules\CpfRule;
 use App\Services\BroadcastService;
@@ -31,7 +32,9 @@ class InvitationController extends Controller
             ]);
         }
 
-        return view('auth.accept-invitation', compact('user', 'token'));
+        $suggestedAreas = TeachingArea::orderBy('name')->pluck('name');
+
+        return view('auth.accept-invitation', compact('user', 'token', 'suggestedAreas'));
     }
 
     /**
@@ -56,6 +59,9 @@ class InvitationController extends Controller
         $request->validate([
             'cpf' => ['required', 'string', new CpfRule],
             'cpf_sanitized' => ['unique:users,cpf,'.$user->id],
+            'institution' => ['nullable', 'string', 'max:256'],
+            'teaching_areas' => ['nullable', 'array'],
+            'teaching_areas.*' => ['string', 'max:100'],
             'password' => [
                 'required',
                 'string',
@@ -90,11 +96,23 @@ class InvitationController extends Controller
 
         $user->update([
             'cpf' => $sanitizedCpf,
+            'institution' => $request->filled('institution') ? trim($request->input('institution')) : $user->institution,
             'password' => Hash::make($request->input('password')),
             'status' => 'active',
             'invitation_token' => null,
             'email_verified_at' => now(),
         ]);
+
+        $rawAreas = (array) $request->input('teaching_areas', []);
+        $areaIds = [];
+        foreach ($rawAreas as $areaName) {
+            $trimmed = trim((string) $areaName);
+            if ($trimmed !== '') {
+                $teachingArea = TeachingArea::firstOrCreate(['name' => $trimmed]);
+                $areaIds[] = $teachingArea->id;
+            }
+        }
+        $user->teachingAreas()->sync($areaIds);
 
         BroadcastService::dispatch(new ProfessorListUpdated($user, 'updated'));
 

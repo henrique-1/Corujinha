@@ -42,8 +42,8 @@ export function initProfessorsMonitor() {
                     <td class="py-4 px-6 text-cloud-burst-800">
                         ${escapeHtml(e.professor.email)}
                     </td>
-                    <td class="py-4 px-6 text-cloud-burst-800 font-mono text-xs" id="prof-cpf-${e.professor.id}">
-                        ${escapeHtml(e.professor.cpf)}
+                    <td class="py-4 px-6" id="prof-areas-${e.professor.id}">
+                        ${renderTeachingAreas(e.professor.teaching_areas)}
                     </td>
                     <td class="py-4 px-6" id="prof-status-${e.professor.id}">
                         ${e.professor.is_active ? `
@@ -80,8 +80,10 @@ export function initProfessorsMonitor() {
                 existingRow.classList.add('bg-royal-purple-50/50');
                 setTimeout(() => existingRow.classList.remove('bg-royal-purple-50/50'), 1500);
 
-                const cpfEl = document.getElementById(`prof-cpf-${e.professor.id}`);
-                if (cpfEl) cpfEl.textContent = e.professor.cpf;
+                const areasEl = document.getElementById(`prof-areas-${e.professor.id}`);
+                if (areasEl && e.professor.teaching_areas !== undefined) {
+                    areasEl.innerHTML = renderTeachingAreas(e.professor.teaching_areas);
+                }
 
                 const statusEl = document.getElementById(`prof-status-${e.professor.id}`);
                 if (statusEl) {
@@ -109,6 +111,18 @@ export function initProfessorsMonitor() {
                 }
             }
         });
+}
+
+function renderTeachingAreas(areas) {
+    if (!areas || areas.length === 0) {
+        return '<span class="text-xs text-cloud-burst-400 font-medium">—</span>';
+    }
+    const badges = areas.map(area => `
+        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-royal-purple-50 text-royal-purple-800 border border-royal-purple-200">
+            ${escapeHtml(area)}
+        </span>
+    `).join('');
+    return `<div class="flex flex-wrap gap-1.5 max-w-xs">${badges}</div>`;
 }
 
 function escapeHtml(text) {

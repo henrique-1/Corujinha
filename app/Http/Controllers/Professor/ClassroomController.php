@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Professor;
 
 use App\Events\ClassroomClosed;
 use App\Events\ClassroomListUpdated;
+use App\Events\StudentAttemptUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\Classroom;
@@ -62,7 +63,22 @@ class ClassroomController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'assessment_id' => ['required'],
             'code' => ['required', 'string', 'max:20', 'unique:classrooms,code'],
+            'game_mode' => ['nullable', 'string', 'in:corujinha,corujao'],
             'collective_review_enabled' => ['nullable', 'boolean'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => [
+                'nullable',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                    if ($request->filled('starts_at') && $request->filled('ends_at')) {
+                        $start = $request->date('starts_at');
+                        $end = $request->date('ends_at');
+                        if ($start && $end && $end->lte($start)) {
+                            $fail('A data e hora de fechamento deve ser posterior à data de abertura.');
+                        }
+                    }
+                },
+            ],
         ], [
             'name.required' => 'Informe o nome da turma ou sala.',
             'assessment_id.required' => 'Selecione uma avaliação para esta sala.',
@@ -95,8 +111,11 @@ class ClassroomController extends Controller
             ]);
         }
 
-        $reviewEnabled = $request->boolean('collective_review_enabled', true);
-        $maxReviewChanges = $this->resolveValidatedMaxReviewChanges($request, (int) $assessment->questions_count, $reviewEnabled);
+        $gameMode = $request->input('game_mode', 'corujinha') === 'corujao' ? 'corujao' : 'corujinha';
+        $reviewEnabled = $gameMode === 'corujao' ? false : $request->boolean('collective_review_enabled', true);
+        $maxReviewChanges = $gameMode === 'corujao'
+            ? null
+            : $this->resolveValidatedMaxReviewChanges($request, (int) $assessment->questions_count, $reviewEnabled);
 
         $code = strtoupper(trim($validated['code']));
 
@@ -105,9 +124,12 @@ class ClassroomController extends Controller
             'assessment_id' => $assessment->id,
             'name' => $validated['name'],
             'code' => $code,
+            'game_mode' => $gameMode,
             'collective_review_enabled' => $reviewEnabled,
             'max_review_changes' => $maxReviewChanges,
             'is_active' => true,
+            'starts_at' => $request->filled('starts_at') ? $request->date('starts_at') : null,
+            'ends_at' => $request->filled('ends_at') ? $request->date('ends_at') : null,
         ]);
 
         BroadcastService::dispatch(new ClassroomListUpdated($classroom, 'created'));
@@ -221,19 +243,40 @@ class ClassroomController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'game_mode' => ['nullable', 'string', 'in:corujinha,corujao'],
             'collective_review_enabled' => ['nullable', 'boolean'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => [
+                'nullable',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                    if ($request->filled('starts_at') && $request->filled('ends_at')) {
+                        $start = $request->date('starts_at');
+                        $end = $request->date('ends_at');
+                        if ($start && $end && $end->lte($start)) {
+                            $fail('A data e hora de fechamento deve ser posterior à data de abertura.');
+                        }
+                    }
+                },
+            ],
         ], [
             'name.required' => 'Informe o nome da turma ou sala.',
         ]);
 
-        $reviewEnabled = $request->boolean('collective_review_enabled');
+        $gameMode = $request->input('game_mode', $sala->game_mode ?? 'corujinha') === 'corujao' ? 'corujao' : 'corujinha';
+        $reviewEnabled = $gameMode === 'corujao' ? false : $request->boolean('collective_review_enabled');
         $questionCount = (int) ($sala->assessment->questions_count ?? 0);
-        $maxReviewChanges = $this->resolveValidatedMaxReviewChanges($request, $questionCount, $reviewEnabled);
+        $maxReviewChanges = $gameMode === 'corujao'
+            ? null
+            : $this->resolveValidatedMaxReviewChanges($request, $questionCount, $reviewEnabled);
 
         $sala->update([
             'name' => $validated['name'],
+            'game_mode' => $gameMode,
             'collective_review_enabled' => $reviewEnabled,
             'max_review_changes' => $maxReviewChanges,
+            'starts_at' => $request->filled('starts_at') ? $request->date('starts_at') : null,
+            'ends_at' => $request->filled('ends_at') ? $request->date('ends_at') : null,
         ]);
 
         BroadcastService::dispatch(new ClassroomListUpdated($sala, 'updated'));
@@ -385,6 +428,83 @@ class ClassroomController extends Controller
             'questions' => $questions,
             'answers' => $answers,
         ]);
+    }
+
+    /**
+     * Autoriza uma tentativa em dispositivo compartilhado que estava aguardando liberação.
+     */
+    public function authorizeAttempt(Classroom $sala, StudentAttempt $tentativa): RedirectResponse
+    {
+        $this->authorizeClassroom($sala);
+
+        if ((int) $tentativa->classroom_id !== (int) $sala->id) {
+            abort(404);
+        }
+
+        $tentativa->authorizeDevice();
+
+        BroadcastService::dispatch(new StudentAttemptUpdated($tentativa));
+
+        return back()->with('success', "Acesso do estudante {$tentativa->student_name} autorizado com sucesso!");
+    }
+
+    /**
+     * Exclui a resposta / tentativa de um estudante na sala de aula.
+     */
+    public function destroyAttempt(Request $request, Classroom $sala, StudentAttempt $tentativa): RedirectResponse
+    {
+        $this->authorizeClassroom($sala);
+
+        if ((int) $tentativa->classroom_id !== (int) $sala->id) {
+            abort(404);
+        }
+
+        $studentName = $tentativa->student_name;
+        $tentativa->delete();
+
+        if ($request->headers->get('referer') && str_contains($request->headers->get('referer'), '/tentativas/')) {
+            return redirect()->route('professor.salas.show', $sala)
+                ->with('success', "Resposta do estudante {$studentName} excluída com sucesso.");
+        }
+
+        return back()->with('success', "Resposta do estudante {$studentName} excluída com sucesso.");
+    }
+
+    /**
+     * Realiza a correção manual de uma resposta do estudante pelo professor.
+     */
+    public function gradeAnswer(
+        Request $request,
+        Classroom $sala,
+        StudentAttempt $tentativa,
+        StudentAnswer $resposta
+    ): RedirectResponse {
+        $this->authorizeClassroom($sala);
+
+        if ((int) $tentativa->classroom_id !== (int) $sala->id || (int) $resposta->student_attempt_id !== (int) $tentativa->id) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'manual_score' => ['required', 'numeric', 'min:0', 'max:100'],
+            'is_correct' => ['required', 'in:correct,partial,incorrect'],
+            'teacher_comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $score = (float) $validated['manual_score'];
+        $isCorrect = $validated['is_correct'] === 'correct' || ($validated['is_correct'] === 'partial' && $score > 0);
+
+        $resposta->update([
+            'is_manually_graded' => true,
+            'manual_score' => $score,
+            'score' => $score,
+            'is_correct_final' => $isCorrect,
+            'teacher_comment' => $validated['teacher_comment'] ?? null,
+        ]);
+
+        $tentativa->recalculateScore();
+
+        return back()->with('success', 'Correção da questão salva com sucesso!');
     }
 
     /**

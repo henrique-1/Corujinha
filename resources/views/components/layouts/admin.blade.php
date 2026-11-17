@@ -51,13 +51,11 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <a href="{{ route('security.index') }}" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-royal-purple-900 text-royal-purple-200 hover:text-white hover:bg-royal-purple-800 transition border border-royal-purple-800">
-                        <x-lucide-shield-check class="w-4 h-4" />
-                        <span>Segurança (MFA)</span>
-                    </a>
-
-                    <div class="flex items-center gap-2 pl-2 border-l border-royal-purple-800">
-                        <span class="text-xs text-royal-purple-200 hidden lg:inline">{{ auth()->user()->name }}</span>
+                    <div class="flex items-center gap-2.5">
+                        <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 group text-royal-purple-200 hover:text-white transition" title="Meu Perfil">
+                            <x-user-avatar :user="auth()->user()" size="sm" />
+                            <span class="text-xs font-semibold hidden lg:inline group-hover:underline">{{ auth()->user()->name }}</span>
+                        </a>
                         <form action="{{ route('logout') }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="cursor-pointer flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-shocking-pink-900/30 text-shocking-pink-200 hover:bg-shocking-pink-800/40 border border-shocking-pink-500/30 transition">
@@ -114,6 +112,8 @@
     <footer class="mt-auto py-5 text-center text-xs text-cloud-burst-800 border-t border-magnolia-200 bg-white/70">
         Corujinha · Plataforma Aberta e Gratuita de Aprendizagem e Avaliação &copy; {{ date('Y') }}
     </footer>
+
+    <x-cookie-banner />
 
     @stack('scripts')
 </body>

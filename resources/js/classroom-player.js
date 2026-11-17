@@ -108,6 +108,43 @@ export function initClassroomPlayer() {
             return;
         }
 
+        const isCorujao = (config.gameMode === 'corujao');
+        if (isCorujao && !s.done && s.started && r <= 0 && !s.autoSubmitting) {
+            s.autoSubmitting = true;
+            if (clock) {
+                clock.textContent = '00:00';
+                clock.className = 'text-5xl font-bold font-mono tracking-tight text-rose-600 leading-none my-2 transition-colors';
+            }
+            if (timerStatus) {
+                timerStatus.textContent = 'Tempo esgotado! Registrando questão...';
+                timerStatus.className = 'block text-xs text-rose-600 font-semibold mb-2';
+            }
+            toast('Tempo esgotado no Modo Corujão! Registrando e avançando...');
+            submitCurrentQuestion(true).then((ok) => {
+                s.autoSubmitting = false;
+                if (idx < DATA.length - 1) {
+                    navigate(idx + 1);
+                } else {
+                    fetch(config.finishUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    }).then((res) => res.json()).then((data) => {
+                        if (data.closed && data.redirect_url) {
+                            handleClassroomClosed(data.error, data.redirect_url);
+                        } else if (data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        }
+                    }).catch(() => {});
+                }
+            }).catch(() => {
+                s.autoSubmitting = false;
+            });
+            return;
+        }
+
         if (clock) {
             clock.textContent = formatTime(r);
             if (r <= 30000) {
@@ -540,7 +577,7 @@ export function initClassroomPlayer() {
     }
 
     // Submissão da Questão ao Backend via Fetch API
-    async function submitCurrentQuestion() {
+    async function submitCurrentQuestion(isTimeout = false) {
         if (config.isTeacherPreview) {
             return true;
         }
@@ -548,39 +585,41 @@ export function initClassroomPlayer() {
         const q = DATA[idx];
         const s = state();
 
-        // 1. Validação da Alternativa
-        if (!s.answer) {
-            toast('Selecione uma das alternativas (A, B, C, D ou E).');
-            return false;
-        }
+        if (!isTimeout) {
+            // 1. Validação da Alternativa
+            if (!s.answer) {
+                toast('Selecione uma das alternativas (A, B, C, D ou E).');
+                return false;
+            }
 
-        // 2. Validação da Justificativa
-        if (!s.reason.trim()) {
-            toast('Preencha a justificativa da alternativa escolhida.');
-            $('reason')?.focus();
-            return false;
-        }
+            // 2. Validação da Justificativa
+            if (!s.reason.trim()) {
+                toast('Preencha a justificativa da alternativa escolhida.');
+                $('reason')?.focus();
+                return false;
+            }
 
-        // 3. Validação de Marca-Texto de Comando
-        const markers = s.markers || [];
-        const hasCommandMarker = markers.some((m) => m.kind === 'command');
-        if (q.require_command_highlight && !hasCommandMarker) {
-            toast('Atenção: Você deve destacar o comando da questão com o Marca-Texto Amarelo antes de avançar.');
-            return false;
-        }
+            // 3. Validação de Marca-Texto de Comando
+            const markers = s.markers || [];
+            const hasCommandMarker = markers.some((m) => m.kind === 'command');
+            if (q.require_command_highlight && !hasCommandMarker) {
+                toast('Atenção: Você deve destacar o comando da questão com o Marca-Texto Amarelo antes de avançar.');
+                return false;
+            }
 
-        // 4. Validação de Marca-Texto de Pistas
-        const hasClueMarker = markers.some((m) => m.kind === 'evidence');
-        if (q.require_clue_highlight && !hasClueMarker) {
-            toast('Atenção: Você deve destacar as pistas no texto de apoio com o Marca-Texto Azul antes de avançar.');
-            return false;
+            // 4. Validação de Marca-Texto de Pistas
+            const hasClueMarker = markers.some((m) => m.kind === 'evidence');
+            if (q.require_clue_highlight && !hasClueMarker) {
+                toast('Atenção: Você deve destacar as pistas no texto de apoio com o Marca-Texto Azul antes de avançar.');
+                return false;
+            }
         }
 
         // Para o cronômetro desta questão
         if (!s.done) {
             const r = remaining(s);
-            s.timeUsed = Math.max(0, (s.timeLimit || 180000) - r);
-            s.remaining = r;
+            s.timeUsed = isTimeout ? (s.timeLimit || 180000) : Math.max(0, (s.timeLimit || 180000) - r);
+            s.remaining = isTimeout ? 0 : r;
             s.deadline = null;
             s.done = true;
         }
@@ -596,10 +635,11 @@ export function initClassroomPlayer() {
                 },
                 body: JSON.stringify({
                     question_id: q.id,
-                    answer: s.answer,
-                    reason: s.reason,
-                    markers: s.markers,
-                    time_spent: s.timeUsed
+                    answer: s.answer || null,
+                    reason: s.reason || '',
+                    markers: s.markers || [],
+                    time_spent: s.timeUsed,
+                    is_timeout: Boolean(isTimeout)
                 })
             });
 
@@ -871,6 +911,58 @@ export function initClassroomPlayer() {
         timerId = setInterval(tick, 250);
     } else {
         tick();
+    }
+
+    // Detecção de Saída da Prova (Troca de Aba / Perda de Foco)
+    let tabSwitchesCount = config.tabSwitchesCount || 0;
+    let hasLeftPage = false;
+
+    if (!config.isTeacherPreview && config.recordTabSwitchUrl) {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                hasLeftPage = true;
+                tabSwitchesCount++;
+
+                try {
+                    fetch(config.recordTabSwitchUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken || '',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ reason: 'visibility_hidden' }),
+                    })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        if (data && typeof data.tab_switches_count === 'number') {
+                            tabSwitchesCount = data.tab_switches_count;
+                        }
+                    })
+                    .catch(() => {});
+                } catch (e) {}
+            } else if (document.visibilityState === 'visible' && hasLeftPage) {
+                hasLeftPage = false;
+                const modal = $('modal-tab-switch-alert');
+                const counterEl = $('modal-tab-switch-counter');
+                if (counterEl) {
+                    counterEl.textContent = `${tabSwitchesCount} ${tabSwitchesCount === 1 ? 'vez' : 'vezes'}`;
+                }
+                if (modal) {
+                    modal.classList.remove('hidden');
+                }
+            }
+        });
+
+        const dismissBtn = $('btn-dismiss-tab-switch-alert');
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', () => {
+                const modal = $('modal-tab-switch-alert');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        }
     }
 
     render();

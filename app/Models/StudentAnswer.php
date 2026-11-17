@@ -19,9 +19,14 @@ class StudentAnswer extends Model
         'reviewed_answer',
         'review_reflection',
         'reviewed_markers',
+        'resolution_image_path',
         'is_correct_initial',
         'is_correct_final',
         'time_spent_seconds',
+        'score',
+        'is_manually_graded',
+        'manual_score',
+        'teacher_comment',
     ];
 
     protected function casts(): array
@@ -32,7 +37,24 @@ class StudentAnswer extends Model
             'is_correct_initial' => 'boolean',
             'is_correct_final' => 'boolean',
             'time_spent_seconds' => 'integer',
+            'score' => 'float',
+            'is_manually_graded' => 'boolean',
+            'manual_score' => 'float',
         ];
+    }
+
+    public function hasResolutionImage(): bool
+    {
+        return ! empty($this->resolution_image_path);
+    }
+
+    public function getResolutionImageUrlAttribute(): ?string
+    {
+        if (! $this->hasResolutionImage()) {
+            return null;
+        }
+
+        return route('midia.resolucao', ['studentAnswer' => $this->id], false);
     }
 
     public function attempt(): BelongsTo

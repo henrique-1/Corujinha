@@ -51,4 +51,73 @@ class Assessment extends Model
     {
         return $this->hasMany(Classroom::class);
     }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(AssessmentShare::class);
+    }
+
+    public function isOwner(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return (int) $this->user_id === (int) $user->id;
+    }
+
+    public function canEdit(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($this->isOwner($user) || $user->isSuperUser()) {
+            return true;
+        }
+
+        return $this->shares()
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhere('email', mb_strtolower($user->email));
+            })
+            ->where('permission', 'edit')
+            ->exists();
+    }
+
+    public function canView(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($this->canEdit($user)) {
+            return true;
+        }
+
+        return $this->shares()
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhere('email', mb_strtolower($user->email));
+            })
+            ->exists();
+    }
+
+    /**
+     * Escopo para listar avaliações acessíveis pelo usuário (próprias ou compartilhadas).
+     */
+    public function scopeAccessibleBy($query, User $user)
+    {
+        if ($user->isSuperUser()) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($user) {
+            $q->where('user_id', $user->id)
+                ->orWhereHas('shares', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id)
+                        ->orWhere('email', mb_strtolower($user->email));
+                });
+        });
+    }
 }

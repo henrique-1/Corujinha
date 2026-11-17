@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicUuid;
 use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -24,6 +25,8 @@ class User extends Authenticatable
         'uuid',
         'name',
         'email',
+        'avatar_path',
+        'institution',
         'cpf',
         'password',
         'role',
@@ -73,6 +76,14 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';
+    }
+
+    /**
+     * Alias para isSuperAdmin.
+     */
+    public function isSuperUser(): bool
+    {
+        return $this->isSuperAdmin();
     }
 
     /**
@@ -139,5 +150,69 @@ class User extends Authenticatable
     public function classrooms(): HasMany
     {
         return $this->hasMany(Classroom::class);
+    }
+
+    /**
+     * Áreas de atuação/disciplinas lecionadas pelo professor.
+     */
+    public function teachingAreas(): BelongsToMany
+    {
+        return $this->belongsToMany(TeachingArea::class, 'teaching_area_user')
+            ->withTimestamps();
+    }
+
+    /**
+     * Pastas de perguntas criadas pelo professor.
+     */
+    public function questionFolders(): HasMany
+    {
+        return $this->hasMany(QuestionFolder::class);
+    }
+
+    /**
+     * Pastas de perguntas compartilhadas com o professor.
+     */
+    public function sharedQuestionFolders(): BelongsToMany
+    {
+        return $this->belongsToMany(QuestionFolder::class, 'question_folder_shares', 'user_id', 'question_folder_id')
+            ->withPivot(['permission', 'email', 'invitation_token'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Solicitações de alteração de e-mail do usuário.
+     */
+    public function emailChangeRequests(): HasMany
+    {
+        return $this->hasMany(EmailChangeRequest::class);
+    }
+
+    /**
+     * Retorna a URL pública do avatar ou null se não cadastrado.
+     */
+    public function avatarUrl(): ?string
+    {
+        if (empty($this->avatar_path)) {
+            return null;
+        }
+
+        return asset('storage/'.$this->avatar_path);
+    }
+
+    /**
+     * Iniciais do nome do usuário para exibição em avatar estilizado.
+     */
+    public function initials(): string
+    {
+        $parts = array_values(array_filter(explode(' ', trim((string) $this->name))));
+        if (empty($parts)) {
+            return mb_strtoupper(mb_substr((string) $this->email, 0, 2));
+        }
+
+        if (count($parts) === 1) {
+            return mb_strtoupper(mb_substr($parts[0], 0, 2));
+        }
+
+        return mb_strtoupper(mb_substr($parts[0], 0, 1).mb_substr(end($parts), 0, 1));
     }
 }

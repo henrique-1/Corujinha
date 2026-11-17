@@ -20,6 +20,7 @@ class ProfessorController extends Controller
     public function index(): View
     {
         $professores = User::where('role', 'professor')
+            ->with('teachingAreas')
             ->latest()
             ->paginate(15);
 

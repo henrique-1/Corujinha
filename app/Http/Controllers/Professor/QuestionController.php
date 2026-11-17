@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Professor;
 use App\Events\QuestionUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
+use App\Models\GradeLevel;
 use App\Models\Question;
+use App\Models\QuestionFolder;
 use App\Models\QuestionOption;
 use App\Models\StudentAttempt;
+use App\Models\TeachingArea;
 use App\Services\BroadcastService;
 use App\Services\RichTextSanitizer;
 use Illuminate\Http\RedirectResponse;
@@ -24,8 +27,19 @@ class QuestionController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = Auth::user()->questions()
-            ->with('options');
+        $user = Auth::user();
+        $tab = $request->input('tab', 'minhas');
+
+        if ($tab === 'compartilhadas') {
+            $query = Question::with(['options', 'folder', 'user', 'shares.user'])
+                ->where('user_id', '!=', $user->id)
+                ->whereHas('shares', function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                        ->orWhere('email', mb_strtolower($user->email));
+                });
+        } else {
+            $query = $user->questions()->with(['options', 'folder', 'shares.user']);
+        }
 
         if ($request->filled('area')) {
             $query->where('area', $request->input('area'));
@@ -48,10 +62,32 @@ class QuestionController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $areas = Auth::user()->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
-        $gradeLevels = Auth::user()->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
+        $myQuestionsCount = $user->questions()->count();
+        $sharedQuestionsCount = Question::where('user_id', '!=', $user->id)
+            ->whereHas('shares', function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhere('email', mb_strtolower($user->email));
+            })->count();
 
-        return view('professor.perguntas.index', compact('questions', 'areas', 'gradeLevels'));
+        $areas = $user->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
+        $gradeLevels = $user->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
+
+        $myFolders = $user->questionFolders()->withCount('questions')->latest()->get();
+        $sharedFolders = QuestionFolder::whereHas('shares', function ($q) use ($user) {
+            $q->where('user_id', $user->id)
+                ->orWhere('email', mb_strtolower($user->email));
+        })->withCount('questions')->with(['user', 'shares' => fn ($q) => $q->where('user_id', $user->id)->orWhere('email', mb_strtolower($user->email))])->latest()->get();
+
+        return view('professor.perguntas.index', compact(
+            'questions',
+            'areas',
+            'gradeLevels',
+            'myFolders',
+            'sharedFolders',
+            'tab',
+            'myQuestionsCount',
+            'sharedQuestionsCount'
+        ));
     }
 
     /**
@@ -59,7 +95,11 @@ class QuestionController extends Controller
      */
     public function create(): View
     {
-        return view('professor.perguntas.create');
+        $suggestedAreas = TeachingArea::orderBy('name')->pluck('name');
+        $suggestedGradeLevels = GradeLevel::orderBy('id')->pluck('name');
+        $folders = Auth::user()->questionFolders()->orderBy('name')->get();
+
+        return view('professor.perguntas.create', compact('suggestedAreas', 'suggestedGradeLevels', 'folders'));
     }
 
     /**
@@ -74,36 +114,67 @@ class QuestionController extends Controller
             $imagePath = $request->file('support_image')->store('questions/images', 'local');
         }
 
+        $expectedAnswerImagePath = null;
+        if ($request->hasFile('expected_answer_image')) {
+            $expectedAnswerImagePath = $request->file('expected_answer_image')->store('questions/expected_answers', 'local');
+        }
+
         $supportTitle = $validated['support_title'] ?? null;
         $supportText = RichTextSanitizer::sanitize($validated['support_text'] ?? null);
+        $folderId = $this->resolveFolderId($validated['folder_id'] ?? null);
+        $gradeLevel = GradeLevel::findOrCreateSimilar($validated['grade_level'] ?? null);
+        $focusPayload = $this->resolveFocusPayload($request, $validated);
+
+        $area = mb_strtolower(trim($validated['area'] ?? ''));
+        $isMath = str_contains($area, 'matemát') || str_contains($area, 'matemat');
+        $isPortuguese = $area !== '' && (str_contains($area, 'portugu') || str_contains($area, 'língua portuguesa'));
+        $answerType = ($isMath && ($validated['answer_type'] ?? '') === 'direct_input')
+            ? 'direct_input'
+            : 'multiple_choice';
+
+        $requireCommandHighlight = $isPortuguese
+            ? $request->boolean('require_command_highlight', true)
+            : false;
+
+        $requireClueHighlight = $isPortuguese
+            ? $request->boolean('require_clue_highlight', true)
+            : false;
 
         $question = Question::create([
             'user_id' => Auth::id(),
-            'focus' => $validated['focus'] ?? null,
+            'folder_id' => $folderId,
+            'focus' => $focusPayload['focus'],
+            'focus_terms' => $focusPayload['focus_terms'],
             'area' => $validated['area'] ?? null,
-            'grade_level' => $validated['grade_level'] ?? null,
+            'answer_type' => $answerType,
+            'expected_answer' => $answerType === 'direct_input' ? ($validated['expected_answer'] ?? null) : null,
+            'expected_answer_explanation' => $validated['expected_answer_explanation'] ?? null,
+            'expected_answer_image_path' => $expectedAnswerImagePath,
+            'grade_level' => $gradeLevel,
             'time_limit_seconds' => (int) ($validated['time_limit_seconds'] ?? 180),
             'support_type' => $this->resolveSupportType($supportTitle, $supportText, $imagePath),
             'support_title' => $supportTitle,
             'support_text' => $supportText,
             'support_image_path' => $imagePath,
             'prompt' => $validated['prompt'],
-            'require_command_highlight' => $request->boolean('require_command_highlight', true),
-            'require_clue_highlight' => $request->boolean('require_clue_highlight', true),
-            'expected_commands' => $validated['expected_commands'] ?? null,
-            'command_feedback' => $validated['command_feedback'] ?? null,
-            'expected_clues' => $validated['expected_clues'] ?? null,
-            'clue_feedback' => $validated['clue_feedback'] ?? null,
-            'correct_option' => $validated['correct_option'],
+            'require_command_highlight' => $requireCommandHighlight,
+            'require_clue_highlight' => $requireClueHighlight,
+            'expected_commands' => $isPortuguese ? ($validated['expected_commands'] ?? null) : null,
+            'command_feedback' => $isPortuguese ? ($validated['command_feedback'] ?? null) : null,
+            'expected_clues' => $isPortuguese ? ($validated['expected_clues'] ?? null) : null,
+            'clue_feedback' => $isPortuguese ? ($validated['clue_feedback'] ?? null) : null,
+            'correct_option' => $answerType === 'direct_input' ? null : ($validated['correct_option'] ?? null),
         ]);
 
-        foreach ($validated['options'] as $opt) {
-            QuestionOption::create([
-                'question_id' => $question->id,
-                'letter' => $opt['letter'],
-                'text' => $opt['text'],
-                'feedback' => $opt['feedback'] ?? null,
-            ]);
+        if ($answerType === 'multiple_choice' && ! empty($validated['options'])) {
+            foreach ($validated['options'] as $opt) {
+                QuestionOption::create([
+                    'question_id' => $question->id,
+                    'letter' => $opt['letter'],
+                    'text' => $opt['text'],
+                    'feedback' => $opt['feedback'] ?? null,
+                ]);
+            }
         }
 
         return redirect()->route('professor.perguntas.index')
@@ -118,7 +189,16 @@ class QuestionController extends Controller
         $this->authorizeQuestion($pergunta);
         $pergunta->load('options');
 
-        return view('professor.perguntas.edit', ['question' => $pergunta]);
+        $suggestedAreas = TeachingArea::orderBy('name')->pluck('name');
+        $suggestedGradeLevels = GradeLevel::orderBy('id')->pluck('name');
+        $folders = Auth::user()->questionFolders()->orderBy('name')->get();
+
+        return view('professor.perguntas.edit', [
+            'question' => $pergunta,
+            'suggestedAreas' => $suggestedAreas,
+            'suggestedGradeLevels' => $suggestedGradeLevels,
+            'folders' => $folders,
+        ]);
     }
 
     /**
@@ -143,33 +223,76 @@ class QuestionController extends Controller
             $imagePath = $request->file('support_image')->store('questions/images', 'local');
         }
 
+        $expectedAnswerImagePath = $pergunta->expected_answer_image_path;
+        if ($request->boolean('remove_expected_answer_image') && $expectedAnswerImagePath) {
+            $this->deleteSupportImageFile($expectedAnswerImagePath);
+            $expectedAnswerImagePath = null;
+        }
+
+        if ($request->hasFile('expected_answer_image')) {
+            if ($expectedAnswerImagePath) {
+                $this->deleteSupportImageFile($expectedAnswerImagePath);
+            }
+            $expectedAnswerImagePath = $request->file('expected_answer_image')->store('questions/expected_answers', 'local');
+        }
+
         $supportTitle = $validated['support_title'] ?? null;
         $supportText = RichTextSanitizer::sanitize($validated['support_text'] ?? null);
+        $folderId = array_key_exists('folder_id', $validated)
+            ? $this->resolveFolderId($validated['folder_id'])
+            : $pergunta->folder_id;
+        $gradeLevel = GradeLevel::findOrCreateSimilar($validated['grade_level'] ?? null);
+        $focusPayload = $this->resolveFocusPayload($request, $validated);
+
+        $area = mb_strtolower(trim($validated['area'] ?? ''));
+        $isMath = str_contains($area, 'matemát') || str_contains($area, 'matemat');
+        $isPortuguese = $area !== '' && (str_contains($area, 'portugu') || str_contains($area, 'língua portuguesa'));
+        $answerType = ($isMath && ($validated['answer_type'] ?? '') === 'direct_input')
+            ? 'direct_input'
+            : 'multiple_choice';
+
+        $requireCommandHighlight = $isPortuguese
+            ? $request->boolean('require_command_highlight', true)
+            : false;
+
+        $requireClueHighlight = $isPortuguese
+            ? $request->boolean('require_clue_highlight', true)
+            : false;
 
         $pergunta->update([
-            'focus' => $validated['focus'] ?? null,
+            'folder_id' => $folderId,
+            'focus' => $focusPayload['focus'],
+            'focus_terms' => $focusPayload['focus_terms'],
             'area' => $validated['area'] ?? null,
-            'grade_level' => $validated['grade_level'] ?? null,
+            'answer_type' => $answerType,
+            'expected_answer' => $answerType === 'direct_input' ? ($validated['expected_answer'] ?? null) : null,
+            'expected_answer_explanation' => $validated['expected_answer_explanation'] ?? null,
+            'expected_answer_image_path' => $expectedAnswerImagePath,
+            'grade_level' => $gradeLevel,
             'time_limit_seconds' => (int) ($validated['time_limit_seconds'] ?? 180),
             'support_type' => $this->resolveSupportType($supportTitle, $supportText, $imagePath),
             'support_title' => $supportTitle,
             'support_text' => $supportText,
             'support_image_path' => $imagePath,
             'prompt' => $validated['prompt'],
-            'require_command_highlight' => $request->boolean('require_command_highlight'),
-            'require_clue_highlight' => $request->boolean('require_clue_highlight'),
-            'expected_commands' => $validated['expected_commands'] ?? null,
-            'command_feedback' => $validated['command_feedback'] ?? null,
-            'expected_clues' => $validated['expected_clues'] ?? null,
-            'clue_feedback' => $validated['clue_feedback'] ?? null,
-            'correct_option' => $validated['correct_option'],
+            'require_command_highlight' => $requireCommandHighlight,
+            'require_clue_highlight' => $requireClueHighlight,
+            'expected_commands' => $isPortuguese ? ($validated['expected_commands'] ?? null) : null,
+            'command_feedback' => $isPortuguese ? ($validated['command_feedback'] ?? null) : null,
+            'expected_clues' => $isPortuguese ? ($validated['expected_clues'] ?? null) : null,
+            'clue_feedback' => $isPortuguese ? ($validated['clue_feedback'] ?? null) : null,
+            'correct_option' => $answerType === 'direct_input' ? null : ($validated['correct_option'] ?? null),
         ]);
 
-        foreach ($validated['options'] as $opt) {
-            QuestionOption::updateOrCreate(
-                ['question_id' => $pergunta->id, 'letter' => $opt['letter']],
-                ['text' => $opt['text'], 'feedback' => $opt['feedback'] ?? null]
-            );
+        if ($answerType === 'direct_input') {
+            $pergunta->options()->delete();
+        } elseif (! empty($validated['options'])) {
+            foreach ($validated['options'] as $opt) {
+                QuestionOption::updateOrCreate(
+                    ['question_id' => $pergunta->id, 'letter' => $opt['letter']],
+                    ['text' => $opt['text'], 'feedback' => $opt['feedback'] ?? null]
+                );
+            }
         }
 
         $broadcastKeys = Classroom::where('is_active', true)
@@ -221,6 +344,37 @@ class QuestionController extends Controller
     }
 
     /**
+     * Serve a imagem da resolução esperada da pergunta.
+     */
+    public function showExpectedAnswerImage(Question $question): StreamedResponse
+    {
+        if (! $this->canViewSupportImage($question) || ! $question->hasExpectedAnswerImage()) {
+            abort(404);
+        }
+
+        $path = $question->expected_answer_image_path;
+        $disk = null;
+
+        if (Storage::disk('local')->exists($path)) {
+            $disk = 'local';
+        } elseif (Storage::disk('public')->exists($path)) {
+            $disk = 'public';
+        }
+
+        if (! $disk) {
+            abort(404);
+        }
+
+        return Storage::disk($disk)->response(
+            $path,
+            null,
+            [
+                'Cache-Control' => 'private, max-age=3600',
+            ]
+        );
+    }
+
+    /**
      * Exclui uma pergunta.
      */
     public function destroy(Question $pergunta): RedirectResponse
@@ -229,6 +383,10 @@ class QuestionController extends Controller
 
         if ($pergunta->support_image_path) {
             $this->deleteSupportImageFile($pergunta->support_image_path);
+        }
+
+        if ($pergunta->expected_answer_image_path) {
+            $this->deleteSupportImageFile($pergunta->expected_answer_image_path);
         }
 
         $pergunta->delete();
@@ -280,9 +438,17 @@ class QuestionController extends Controller
      */
     private function validateQuestionData(Request $request): array
     {
-        return $request->validate([
-            'focus' => ['nullable', 'string', 'max:255'],
+        $area = mb_strtolower(trim((string) $request->input('area', '')));
+        $isMath = str_contains($area, 'matemát') || str_contains($area, 'matemat');
+        $answerType = $request->input('answer_type', 'multiple_choice');
+
+        $rules = [
+            'focus' => ['nullable', 'string', 'max:1000'],
+            'focus_terms' => ['nullable', 'array'],
+            'focus_terms.*' => ['string', 'max:255'],
+            'folder_id' => ['nullable'],
             'area' => ['nullable', 'string', 'max:100'],
+            'answer_type' => ['nullable', 'in:multiple_choice,direct_input'],
             'grade_level' => ['nullable', 'string', 'max:100'],
             'time_limit_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
             'support_title' => ['nullable', 'string', 'max:255'],
@@ -290,19 +456,35 @@ class QuestionController extends Controller
             'support_image' => ['nullable', 'image', 'max:5120'],
             'remove_support_image' => ['nullable', 'boolean'],
             'prompt' => ['required', 'string'],
+            'expected_answer' => ['nullable', 'string'],
+            'expected_answer_explanation' => ['nullable', 'string'],
+            'expected_answer_image' => ['nullable', 'image', 'max:5120'],
+            'remove_expected_answer_image' => ['nullable', 'boolean'],
             'require_command_highlight' => ['nullable', 'boolean'],
             'require_clue_highlight' => ['nullable', 'boolean'],
             'expected_commands' => ['nullable', 'string'],
             'command_feedback' => ['nullable', 'string'],
             'expected_clues' => ['nullable', 'string'],
             'clue_feedback' => ['nullable', 'string'],
-            'correct_option' => ['required', 'in:A,B,C,D,E'],
-            'options' => ['required', 'array', 'size:5'],
-            'options.*.letter' => ['required', 'in:A,B,C,D,E'],
-            'options.*.text' => ['required', 'string'],
-            'options.*.feedback' => ['nullable', 'string'],
-        ], [
+        ];
+
+        if ($isMath && $answerType === 'direct_input') {
+            $rules['expected_answer'] = ['required', 'string', 'max:2000'];
+            $rules['correct_option'] = ['nullable'];
+            $rules['options'] = ['nullable', 'array'];
+        } else {
+            $rules['correct_option'] = ['required', 'in:A,B,C,D,E'];
+            $rules['options'] = ['required', 'array', 'size:5'];
+            $rules['options.*.letter'] = ['required', 'in:A,B,C,D,E'];
+            $rules['options.*.text'] = ['required', 'string'];
+            $rules['options.*.feedback'] = ['nullable', 'string'];
+        }
+
+        return $request->validate($rules, [
             'prompt.required' => 'Informe o comando / enunciado da pergunta.',
+            'expected_answer.required' => 'Cadastre a resposta esperada para esta pergunta de matemática.',
+            'expected_answer_image.image' => 'A foto da resolução esperada deve ser uma imagem válida (JPG, PNG, WEBP).',
+            'expected_answer_image.max' => 'A foto da resolução esperada deve ter no máximo 5 MB.',
             'support_image.image' => 'O arquivo de apoio deve ser uma imagem válida (JPG, PNG, WEBP).',
             'support_image.max' => 'A imagem de apoio deve ter no máximo 5 MB.',
             'time_limit_seconds.min' => 'O tempo mínimo por questão é de 30 segundos.',
@@ -327,5 +509,65 @@ class QuestionController extends Controller
         }
 
         return 'text';
+    }
+
+    private function resolveFolderId(mixed $raw): ?int
+    {
+        if (empty($raw)) {
+            return null;
+        }
+
+        $rawStr = (string) $raw;
+        $folder = QuestionFolder::where(function ($query) {
+            $query->where('user_id', Auth::id())
+                ->orWhereHas('shares', function ($q) {
+                    $q->where('permission', 'edit')
+                        ->where(function ($sq) {
+                            $sq->where('user_id', Auth::id())
+                                ->orWhere('email', mb_strtolower(Auth::user()->email));
+                        });
+                });
+        })->where(function ($query) use ($rawStr) {
+            if (ctype_digit($rawStr)) {
+                $query->where('id', (int) $rawStr);
+            } else {
+                $query->where('uuid', $rawStr);
+            }
+        })->first();
+
+        return $folder?->id;
+    }
+
+    /**
+     * Resolve os termos de foco e a string consolidada.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array{focus: ?string, focus_terms: ?array<int, string>}
+     */
+    private function resolveFocusPayload(Request $request, array $validated): array
+    {
+        $terms = $request->input('focus_terms');
+        if (is_array($terms)) {
+            $terms = array_values(array_filter(array_map('trim', $terms)));
+        } else {
+            $terms = [];
+        }
+
+        $singleFocus = isset($validated['focus']) ? trim((string) $validated['focus']) : null;
+        if (empty($terms) && ! empty($singleFocus)) {
+            $terms = [$singleFocus];
+        }
+
+        if (empty($terms)) {
+            return [
+                'focus' => null,
+                'focus_terms' => null,
+            ];
+        }
+
+        return [
+            'focus' => implode(', ', $terms),
+            'focus_terms' => $terms,
+        ];
     }
 }

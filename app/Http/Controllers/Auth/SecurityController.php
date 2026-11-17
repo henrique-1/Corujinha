@@ -40,8 +40,9 @@ class SecurityController extends Controller
 
         $totpUri = $pendingSecret ? $totpService->getOtpAuthUrl($user->name, $user->email, $pendingSecret) : null;
         $totpQrSvg = $totpUri ? $totpService->generateQrCodeSvg($totpUri) : null;
+        $activeTab = 'seguranca';
 
-        return view('auth.security', compact('user', 'credentials', 'pendingSecret', 'totpUri', 'totpQrSvg'));
+        return view('profile.edit', compact('user', 'credentials', 'pendingSecret', 'totpUri', 'totpQrSvg', 'activeTab'));
     }
 
     /**

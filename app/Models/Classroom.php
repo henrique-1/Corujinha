@@ -21,9 +21,12 @@ class Classroom extends Model
         'name',
         'code',
         'broadcast_key',
+        'game_mode',
         'collective_review_enabled',
         'max_review_changes',
         'is_active',
+        'starts_at',
+        'ends_at',
     ];
 
     protected $hidden = [
@@ -48,6 +51,8 @@ class Classroom extends Model
             'collective_review_enabled' => 'boolean',
             'max_review_changes' => 'integer',
             'is_active' => 'boolean',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
         ];
     }
 
@@ -71,6 +76,10 @@ class Classroom extends Model
      */
     public function effectiveMaxReviewChanges(): int
     {
+        if ($this->isCorujao()) {
+            return 0;
+        }
+
         $this->loadMissing('assessment.questions');
         $total = max(1, $this->assessment?->questions->count() ?? 1);
 
@@ -79,6 +88,22 @@ class Classroom extends Model
         }
 
         return max(1, min($this->max_review_changes, $total));
+    }
+
+    /**
+     * Determina se a sala está operando no Modo Corujão (Hardcore).
+     */
+    public function isCorujao(): bool
+    {
+        return ($this->game_mode ?? 'corujinha') === 'corujao';
+    }
+
+    /**
+     * Determina se a sala está operando no Modo Corujinha (Padrão).
+     */
+    public function isCorujinha(): bool
+    {
+        return ! $this->isCorujao();
     }
 
     /**
@@ -93,6 +118,74 @@ class Classroom extends Model
         $this->update(['is_active' => false]);
 
         return true;
+    }
+
+    /**
+     * Determina se a sala está aberta para respostas no momento atual.
+     */
+    public function isOpenNow(): bool
+    {
+        return $this->accessAvailability()['available'];
+    }
+
+    /**
+     * Retorna o status de disponibilidade da sala de aula para os estudantes.
+     *
+     * @return array{available: bool, reason: string, message: ?string}
+     */
+    public function accessAvailability(): array
+    {
+        if (! $this->is_active) {
+            return [
+                'available' => false,
+                'reason' => 'closed_manually',
+                'message' => 'Esta sala de aula está fechada para novas respostas.',
+            ];
+        }
+
+        $now = now();
+
+        if ($this->starts_at && $now->lt($this->starts_at)) {
+            return [
+                'available' => false,
+                'reason' => 'not_started',
+                'message' => 'Esta sala de aula ainda não foi aberta. Ela estará disponível em '.$this->starts_at->format('d/m/Y \à\s H:i').'.',
+            ];
+        }
+
+        if ($this->ends_at && $now->gt($this->ends_at)) {
+            return [
+                'available' => false,
+                'reason' => 'expired',
+                'message' => 'O prazo para realização desta atividade encerrou em '.$this->ends_at->format('d/m/Y \à\s H:i').'.',
+            ];
+        }
+
+        return [
+            'available' => true,
+            'reason' => 'open',
+            'message' => null,
+        ];
+    }
+
+    /**
+     * Retorna uma descrição textual do agendamento configurado.
+     */
+    public function scheduleDescription(): string
+    {
+        if ($this->starts_at && $this->ends_at) {
+            return 'Disponível de '.$this->starts_at->format('d/m/Y H:i').' até '.$this->ends_at->format('d/m/Y H:i');
+        }
+
+        if ($this->starts_at) {
+            return 'Abre em '.$this->starts_at->format('d/m/Y H:i');
+        }
+
+        if ($this->ends_at) {
+            return 'Encerra em '.$this->ends_at->format('d/m/Y H:i');
+        }
+
+        return 'Sem agendamento (aberta até encerramento manual)';
     }
 
     /**

@@ -39,13 +39,18 @@
             @foreach($questions as $idx => $q)
                 @php
                     $ans = $answers->get($q->id);
-                    $initialLetter = $ans?->initial_answer ? trim(strtoupper($ans->initial_answer)) : null;
-                    $reviewedLetter = $ans?->reviewed_answer ? trim(strtoupper($ans->reviewed_answer)) : null;
+                    $isDirectInput = $q->isDirectInput();
+                    $initialLetter = $ans?->initial_answer ? trim($ans->initial_answer) : null;
+                    $reviewedLetter = $ans?->reviewed_answer ? trim($ans->reviewed_answer) : null;
                     $chosenLetter = $reviewedLetter ?: $initialLetter;
-                    $correctOption = trim(strtoupper($q->correct_option));
+                    $correctOption = $q->correct_option ? trim(strtoupper($q->correct_option)) : null;
 
-                    $isCorrect = ($chosenLetter === $correctOption);
-                    $isInitialCorrect = ($initialLetter === $correctOption);
+                    $isCorrect = $isDirectInput
+                        ? (bool) ($ans?->is_correct_final ?? $ans?->is_correct_initial)
+                        : (strtoupper($chosenLetter ?? '') === $correctOption);
+                    $isInitialCorrect = $isDirectInput
+                        ? (bool) $ans?->is_correct_initial
+                        : (strtoupper($initialLetter ?? '') === $correctOption);
                     $hasReviewDifference = ($reviewedLetter && $reviewedLetter !== $initialLetter);
                     $markers = $ans?->initial_markers ?? [];
                 @endphp
@@ -64,17 +69,25 @@
                             @endif
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             @if($classroom->collective_review_enabled)
                                 @if($hasReviewDifference)
                                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold font-heading bg-sky-blue-100 text-sky-blue-950 border border-sky-blue-300">
                                         <x-lucide-refresh-cw class="w-3.5 h-3.5 text-sky-blue-800" />
-                                        <span>Você alterou de {{ $initialLetter }} para {{ $reviewedLetter }}</span>
+                                        @if($isDirectInput)
+                                            <span>Você revisou sua fórmula / resposta</span>
+                                        @else
+                                            <span>Você alterou de {{ $initialLetter }} para {{ $reviewedLetter }}</span>
+                                        @endif
                                     </span>
                                 @elseif($initialLetter)
                                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold font-heading bg-gray-100 text-gray-800 border border-gray-200">
                                         <x-lucide-check class="w-3.5 h-3.5 text-gray-600" />
-                                        <span>Você manteve a resposta inicial ({{ $initialLetter }})</span>
+                                        @if($isDirectInput)
+                                            <span>Resposta inicial mantida</span>
+                                        @else
+                                            <span>Você manteve a resposta inicial ({{ $initialLetter }})</span>
+                                        @endif
                                     </span>
                                 @endif
                             @endif
@@ -84,10 +97,22 @@
                                     <x-lucide-check-circle class="w-3.5 h-3.5 text-emerald-600" />
                                     <span>Você Acertou</span>
                                 </span>
+                            @elseif($ans?->is_manually_graded && $ans?->manual_score > 0)
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-broom-100 text-broom-950 border border-broom-300">
+                                    <x-lucide-check class="w-3.5 h-3.5 text-broom-800" />
+                                    <span>Pontuação Parcial</span>
+                                </span>
                             @else
                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-rose-100 text-rose-800 border border-rose-300">
                                     <x-lucide-x-circle class="w-3.5 h-3.5 text-rose-600" />
                                     <span>Você Errou</span>
+                                </span>
+                            @endif
+
+                            @if($ans?->is_manually_graded)
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-900 border border-royal-purple-300">
+                                    <x-lucide-user-check class="w-3.5 h-3.5 text-royal-purple-700" />
+                                    <span>Avaliação do Professor</span>
                                 </span>
                             @endif
                         </div>
@@ -97,12 +122,12 @@
                     @if($q->hasTextSupport())
                         <div class="bg-magnolia-50/70 p-5 rounded-2xl border border-magnolia-200 space-y-3">
                             @if($q->support_title)
-                                <p class="font-bold font-heading text-cloud-burst-950 text-base mb-1">
+                                <p class="font-bold font-heading text-cloud-burst-950 text-base mb-1" data-math>
                                     {!! \App\Services\TextHighlightService::applyHighlights($q->support_title, $markers, 'title') !!}
                                 </p>
                             @endif
                             @if($q->support_text)
-                                <div class="rich-text-content text-sm text-cloud-burst-950 leading-relaxed">
+                                <div class="rich-text-content text-sm text-cloud-burst-950 leading-relaxed" data-math>
                                     {!! \App\Services\TextHighlightService::applyHighlights($q->support_text, $markers, 'support') !!}
                                 </div>
                             @endif
@@ -117,7 +142,7 @@
                     {{-- Comando da questão com Marca-Texto --}}
                     <div>
                         <p class="text-xs font-bold font-heading text-royal-purple-800 uppercase tracking-wider mb-1">Comando da Questão</p>
-                        <div class="text-base font-bold font-heading text-cloud-burst-950">
+                        <div class="text-base font-bold font-heading text-cloud-burst-950" data-math>
                             {!! \App\Services\TextHighlightService::applyHighlights($q->prompt, $markers, 'prompt') !!}
                         </div>
                     </div>
@@ -220,57 +245,137 @@
                         </div>
                     @endif
 
-                    {{-- Alternativas e Devolutivas Pedagógicas --}}
-                    <div class="space-y-3">
-                        <p class="text-xs font-bold font-heading text-cloud-burst-800 uppercase tracking-wider">
-                            Gabarito e Devolutivas das Alternativas:
-                        </p>
-                        <div class="space-y-2.5">
-                            @foreach($q->options as $opt)
-                                @php
-                                    $optLetter = trim(strtoupper($opt->letter));
-                                    $isOptionCorrect = ($optLetter === $correctOption);
-                                    $isFinalChosen = ($chosenLetter === $optLetter);
-                                    $isInitialChosen = ($initialLetter === $optLetter);
-                                @endphp
-                                <div class="p-3.5 rounded-xl border transition {{ $isOptionCorrect ? 'border-emerald-400 bg-emerald-50/70' : ($isFinalChosen ? 'border-rose-400 bg-rose-50/70' : 'border-magnolia-300 bg-white') }}">
-                                    <div class="flex items-start justify-between gap-2">
-                                        <div class="flex items-start gap-2">
-                                            <span class="font-bold font-heading text-sm {{ $isOptionCorrect ? 'text-emerald-900 font-extrabold' : 'text-cloud-burst-950' }}">
-                                                {{ $opt->letter }})
-                                            </span>
-                                            <span class="text-sm {{ $isOptionCorrect ? 'text-emerald-950 font-bold' : 'text-cloud-burst-900' }}">
-                                                {{ $opt->text }}
-                                            </span>
+                    {{-- Alternativas ou Resposta Direta --}}
+                    @if($isDirectInput)
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {{-- Sua Resposta --}}
+                                <div class="p-5 rounded-2xl border border-magnolia-300 bg-magnolia-50/50 space-y-3">
+                                    <span class="text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider block">
+                                        Sua Resposta Digitada:
+                                    </span>
+                                    @if($chosenLetter)
+                                        <div class="p-3 bg-white rounded-xl border border-magnolia-300 text-cloud-burst-950 font-bold text-base" data-math>
+                                            ${{ $chosenLetter }}$
                                         </div>
-                                        <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
-                                            @if($classroom->collective_review_enabled && $isInitialChosen && !$isFinalChosen)
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold font-heading bg-gray-200 text-gray-800">
-                                                    Sua 1ª Escolha
-                                                </span>
-                                            @endif
-                                            @if($isFinalChosen)
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold font-heading bg-royal-purple-100 text-royal-purple-900">
-                                                    {{ $classroom->collective_review_enabled && $hasReviewDifference ? 'Escolha Final' : 'Sua Escolha' }}
-                                                </span>
-                                            @endif
-                                            @if($isOptionCorrect)
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold font-heading bg-emerald-200 text-emerald-900">
-                                                    Gabarito Correto
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
+                                        <p class="text-[11px] font-mono text-cloud-burst-500">Texto bruto: {{ $chosenLetter }}</p>
+                                    @else
+                                        <p class="text-xs text-cloud-burst-500 italic">Nenhuma resposta em texto ou fórmula digitada.</p>
+                                    @endif
 
-                                    @if($opt->feedback)
-                                        <div class="mt-2 pt-2 border-t {{ $isOptionCorrect ? 'border-emerald-200 text-emerald-900' : 'border-gray-100 text-cloud-burst-700' }} text-xs leading-relaxed">
-                                            <b>Devolutiva pedagógica:</b> {{ $opt->feedback }}
+                                    @if($ans?->hasResolutionImage())
+                                        <div class="pt-2 border-t border-magnolia-200">
+                                            <span class="text-xs font-bold font-heading text-cloud-burst-900 block mb-1.5">
+                                                Foto da Resolução Enviada:
+                                            </span>
+                                            <a href="{{ $ans->resolution_image_url }}" target="_blank" class="block group">
+                                                <img src="{{ $ans->resolution_image_url }}" alt="Sua Resolução" class="max-h-48 rounded-xl border border-gray-200 shadow-2xs group-hover:opacity-95 transition">
+                                                <span class="text-[11px] font-bold text-royal-purple-800 flex items-center gap-1 mt-1 group-hover:underline">
+                                                    <x-lucide-external-link class="w-3 h-3" />
+                                                    <span>Ver foto em tamanho real</span>
+                                                </span>
+                                            </a>
                                         </div>
                                     @endif
                                 </div>
-                            @endforeach
+
+                                {{-- Gabarito Oficial e Explicação --}}
+                                <div class="p-5 rounded-2xl border border-emerald-300 bg-emerald-50/40 space-y-3">
+                                    <span class="text-xs font-bold font-heading text-emerald-950 uppercase tracking-wider block">
+                                        Gabarito Oficial Esperado:
+                                    </span>
+                                    <div class="p-3 bg-white rounded-xl border border-emerald-200 text-emerald-950 font-bold text-base" data-math>
+                                        ${{ $q->expected_answer }}$
+                                    </div>
+                                    @if($q->expected_answer_explanation)
+                                        <div class="text-xs text-emerald-950 leading-relaxed" data-math>
+                                            <b>Devolutiva da Resolução:</b> {{ $q->expected_answer_explanation }}
+                                        </div>
+                                    @endif
+
+                                    @if($q->hasExpectedAnswerImage())
+                                        <div class="pt-2 border-t border-emerald-200">
+                                            <span class="text-xs font-bold font-heading text-emerald-950 block mb-1.5">
+                                                Foto / Esquema da Resolução do Professor:
+                                            </span>
+                                            <a href="{{ $q->expected_answer_image_url }}" target="_blank" class="block group">
+                                                <img src="{{ $q->expected_answer_image_url }}" alt="Resolução Esperada do Professor" class="max-h-48 rounded-xl border border-gray-200 shadow-2xs group-hover:opacity-95 transition">
+                                                <span class="text-[11px] font-bold text-emerald-800 flex items-center gap-1 mt-1 group-hover:underline">
+                                                    <x-lucide-external-link class="w-3 h-3" />
+                                                    <span>Ver foto da resolução em tamanho real</span>
+                                                </span>
+                                            </a>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Devolutiva / Comentário do Professor (se houver) --}}
+                            @if($ans?->teacher_comment)
+                                <div class="p-4 rounded-2xl bg-royal-purple-50 border border-royal-purple-200 text-xs text-royal-purple-950 space-y-1">
+                                    <p class="font-bold font-heading flex items-center gap-1.5 text-royal-purple-900">
+                                        <x-lucide-message-square class="w-4 h-4 text-royal-purple-700" />
+                                        <span>Comentário / Devolutiva Pedagógica do seu Professor:</span>
+                                    </p>
+                                    <p class="italic text-cloud-burst-900 bg-white p-3 rounded-xl border border-royal-purple-100">
+                                        "{{ $ans->teacher_comment }}"
+                                    </p>
+                                </div>
+                            @endif
                         </div>
-                    </div>
+                    @else
+                        {{-- Alternativas e Devolutivas Pedagógicas (Múltipla Escolha) --}}
+                        <div class="space-y-3">
+                            <p class="text-xs font-bold font-heading text-cloud-burst-800 uppercase tracking-wider">
+                                Gabarito e Devolutivas das Alternativas:
+                            </p>
+                            <div class="space-y-2.5">
+                                @foreach($q->options as $opt)
+                                    @php
+                                        $optLetter = trim(strtoupper($opt->letter));
+                                        $isOptionCorrect = ($optLetter === $correctOption);
+                                        $isFinalChosen = ($chosenLetter === $optLetter);
+                                        $isInitialChosen = ($initialLetter === $optLetter);
+                                    @endphp
+                                    <div class="p-3.5 rounded-xl border transition {{ $isOptionCorrect ? 'border-emerald-400 bg-emerald-50/70' : ($isFinalChosen ? 'border-rose-400 bg-rose-50/70' : 'border-magnolia-300 bg-white') }}">
+                                        <div class="flex items-start justify-between gap-2">
+                                            <div class="flex items-start gap-2">
+                                                <span class="font-bold font-heading text-sm {{ $isOptionCorrect ? 'text-emerald-900 font-extrabold' : 'text-cloud-burst-950' }}">
+                                                    {{ $opt->letter }})
+                                                </span>
+                                                <span class="text-sm {{ $isOptionCorrect ? 'text-emerald-950 font-bold' : 'text-cloud-burst-900' }}" data-math>
+                                                    {{ $opt->text }}
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                                @if($classroom->collective_review_enabled && $isInitialChosen && !$isFinalChosen)
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-heading bg-gray-200 text-gray-800">
+                                                        Sua 1ª Escolha
+                                                    </span>
+                                                @endif
+                                                @if($isFinalChosen)
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-heading bg-royal-purple-100 text-royal-purple-900">
+                                                        {{ $classroom->collective_review_enabled && $hasReviewDifference ? 'Escolha Final' : 'Sua Escolha' }}
+                                                    </span>
+                                                @endif
+                                                @if($isOptionCorrect)
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-heading bg-emerald-200 text-emerald-900">
+                                                        Gabarito Correto
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        @if($opt->feedback)
+                                            <div class="mt-2 pt-2 border-t {{ $isOptionCorrect ? 'border-emerald-200 text-emerald-900' : 'border-gray-100 text-cloud-burst-700' }} text-xs leading-relaxed" data-math>
+                                                <b>Devolutiva pedagógica:</b> {{ $opt->feedback }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </article>
             @endforeach
         </div>

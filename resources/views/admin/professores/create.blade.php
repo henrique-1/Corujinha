@@ -38,7 +38,7 @@
                     <label for="email" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1.5">
                         E-mail Institucional do Professor <span class="text-shocking-pink-600">*</span>
                     </label>
-                    <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="maria.silva@sesi.org.br"
+                    <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="professor@escola.com"
                            class="w-full px-4 py-3 text-sm border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:ring-2 focus:ring-royal-purple-800/20 focus:outline-none transition">
                 </div>
 

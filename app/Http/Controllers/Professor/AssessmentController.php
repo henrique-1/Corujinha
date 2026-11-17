@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Professor;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\Question;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -17,19 +18,43 @@ class AssessmentController extends Controller
     /**
      * Lista as avaliações do professor.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
-        $assessments = Auth::user()->assessments()
-            ->withCount(['questions', 'classrooms'])
-            ->with(['classrooms' => function ($query) {
-                $query->with(['studentAttempts' => function ($q) {
-                    $q->select('id', 'classroom_id', 'started_at', 'completed_at');
-                }])->latest();
-            }])
-            ->latest()
-            ->paginate(10);
+        $user = Auth::user();
+        $tab = $request->input('tab', 'minhas');
 
-        return view('professor.avaliacoes.index', compact('assessments'));
+        $query = Assessment::withCount(['questions', 'classrooms'])
+            ->with([
+                'user',
+                'shares.user',
+                'classrooms' => function ($query) {
+                    $query->with(['studentAttempts' => function ($q) {
+                        $q->select('id', 'classroom_id', 'started_at', 'completed_at');
+                    }])->latest();
+                },
+            ]);
+
+        if ($tab === 'compartilhadas') {
+            $query->where('user_id', '!=', $user->id)
+                ->whereHas('shares', function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                        ->orWhere('email', mb_strtolower($user->email));
+                });
+        } else {
+            $query->where('user_id', $user->id);
+        }
+
+        $assessments = $query->latest()->paginate(10)->withQueryString();
+
+        $sharedCount = Assessment::where('user_id', '!=', $user->id)
+            ->whereHas('shares', function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhere('email', mb_strtolower($user->email));
+            })->count();
+
+        $myCount = Assessment::where('user_id', $user->id)->count();
+
+        return view('professor.avaliacoes.index', compact('assessments', 'tab', 'sharedCount', 'myCount'));
     }
 
     /**
@@ -37,11 +62,79 @@ class AssessmentController extends Controller
      */
     public function create(): View
     {
-        $questions = Auth::user()->questions()->latest()->get();
-        $areas = Auth::user()->questions()->whereNotNull('area')->distinct()->pluck('area')->filter()->values();
-        $gradeLevels = Auth::user()->questions()->whereNotNull('grade_level')->distinct()->pluck('grade_level')->filter()->values();
+        $user = Auth::user();
+        $questions = Question::accessibleBy($user)->latest()->get();
+
+        $areas = $questions->pluck('area')->filter()->unique()->values();
+        $gradeLevels = $questions->pluck('grade_level')->filter()->unique()->values();
 
         return view('professor.avaliacoes.create', compact('questions', 'areas', 'gradeLevels'));
+    }
+
+    /**
+     * Seleciona automaticamente N questões com base no descritor/foco pedagógico, turma e área.
+     */
+    public function autoSelectQuestions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'area' => ['nullable', 'string', 'max:100'],
+            'grade_level' => ['nullable', 'string', 'max:100'],
+            'focus' => ['nullable', 'string', 'max:255'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100'],
+            'mode' => ['nullable', 'string', 'in:random,latest'],
+        ], [
+            'quantity.required' => 'Informe a quantidade de questões desejada.',
+            'quantity.min' => 'A quantidade mínima de questões é 1.',
+            'quantity.max' => 'A quantidade máxima de questões por seleção é 100.',
+        ]);
+
+        $user = Auth::user();
+        $query = Question::where(function ($q) use ($user) {
+            $q->where('user_id', $user->id)
+                ->orWhereHas('folder.shares', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id)
+                        ->orWhere('email', mb_strtolower($user->email));
+                });
+        });
+
+        if (! empty($validated['area'])) {
+            $query->where('area', trim($validated['area']));
+        }
+
+        if (! empty($validated['grade_level'])) {
+            $query->where('grade_level', trim($validated['grade_level']));
+        }
+
+        if (! empty($validated['focus'])) {
+            $term = '%'.trim($validated['focus']).'%';
+            $query->where('focus', 'like', $term);
+        }
+
+        $totalMatching = (clone $query)->count();
+
+        if (($validated['mode'] ?? 'random') === 'latest') {
+            $query->latest();
+        } else {
+            $query->inRandomOrder();
+        }
+
+        $questions = $query->limit((int) $validated['quantity'])->get();
+
+        return response()->json([
+            'success' => true,
+            'total_matching' => $totalMatching,
+            'selected_count' => $questions->count(),
+            'requested_count' => (int) $validated['quantity'],
+            'question_uuids' => $questions->pluck('uuid')->all(),
+            'questions' => $questions->map(fn (Question $q) => [
+                'id' => $q->id,
+                'uuid' => $q->uuid,
+                'prompt' => $q->prompt,
+                'focus' => $q->focus,
+                'area' => $q->area,
+                'grade_level' => $q->grade_level,
+            ]),
+        ]);
     }
 
     /**
@@ -282,10 +375,17 @@ class AssessmentController extends Controller
      */
     private function resolveQuestionSyncData(array $questionIdentifiers, array $pointsInput): array
     {
-        /** @var Collection<int, Question> $ownedQuestions */
-        $ownedQuestions = Auth::user()->questions()->get();
-        $byId = $ownedQuestions->keyBy('id');
-        $byUuid = $ownedQuestions->keyBy('uuid');
+        $user = Auth::user();
+        /** @var Collection<int, Question> $accessibleQuestions */
+        $accessibleQuestions = Question::where(function ($q) use ($user) {
+            $q->where('user_id', $user->id)
+                ->orWhereHas('folder.shares', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id)
+                        ->orWhere('email', mb_strtolower($user->email));
+                });
+        })->get();
+        $byId = $accessibleQuestions->keyBy('id');
+        $byUuid = $accessibleQuestions->keyBy('uuid');
 
         $syncData = [];
         $order = 1;

@@ -52,6 +52,11 @@
                         <span class="text-xs text-cloud-burst-700">Selecione as perguntas e defina os pontos de cada questão</span>
                     </div>
                     <div class="flex items-center gap-2">
+                        <button type="button" onclick="document.getElementById('modal-auto-select').classList.remove('hidden')"
+                                class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-broom-400 hover:bg-broom-500 text-broom-950 border border-broom-500 shadow-2xs transition">
+                            <x-lucide-sparkles class="w-3.5 h-3.5 text-broom-950" />
+                            <span>Gerar Avaliação Automática</span>
+                        </button>
                         <span id="selected-questions-count" class="px-3 py-1 rounded-full text-xs font-bold font-heading bg-royal-purple-100 text-royal-purple-900 border border-royal-purple-200">
                             0 selecionada(s)
                         </span>
@@ -231,8 +236,158 @@
                 filterSearch?.addEventListener('input', applyFilters);
                 filterArea?.addEventListener('change', applyFilters);
                 filterGrade?.addEventListener('change', applyFilters);
+
+                // Geração Automática de Avaliação
+                const btnAutoSelect = document.getElementById('btn-run-auto-select');
+                btnAutoSelect?.addEventListener('click', async () => {
+                    const area = document.getElementById('auto_area').value;
+                    const grade_level = document.getElementById('auto_grade').value;
+                    const focus = document.getElementById('auto_focus').value;
+                    const quantity = parseInt(document.getElementById('auto_quantity').value, 10) || 10;
+                    const mode = document.getElementById('auto_mode').value;
+                    const feedback = document.getElementById('auto-select-feedback');
+
+                    btnAutoSelect.disabled = true;
+                    btnAutoSelect.classList.add('opacity-50');
+
+                    try {
+                        const response = await fetch('{{ route('professor.avaliacoes.auto_select') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            },
+                            body: JSON.stringify({ area, grade_level, focus, quantity, mode }),
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            const uuids = new Set(data.question_uuids || []);
+
+                            checkboxes.forEach(cb => {
+                                cb.checked = uuids.has(cb.value);
+                            });
+
+                            recalcTotal();
+
+                            if (uuids.size === 0) {
+                                feedback.className = 'p-3 rounded-xl text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200 block';
+                                feedback.textContent = 'Nenhuma questão encontrada com os critérios informados. Tente ampliar os filtros.';
+                            } else {
+                                feedback.className = 'p-3 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200 block';
+                                if (uuids.size < quantity) {
+                                    feedback.textContent = `Encontradas apenas ${uuids.size} questão(ões) com esses critérios. Todas foram selecionadas!`;
+                                } else {
+                                    feedback.textContent = `${uuids.size} questão(ões) selecionada(s) automaticamente com sucesso!`;
+                                }
+
+                                setTimeout(() => {
+                                    document.getElementById('modal-auto-select').classList.add('hidden');
+                                    feedback.className = 'hidden';
+                                }, 1200);
+                            }
+                        }
+                    } catch (err) {
+                        alert('Erro ao realizar a seleção automática. Tente novamente.');
+                    } finally {
+                        btnAutoSelect.disabled = false;
+                        btnAutoSelect.classList.remove('opacity-50');
+                    }
+                });
             });
         </script>
     @endpush
+
+    {{-- Modal de Geração Automática de Avaliação --}}
+    <div id="modal-auto-select" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-cloud-burst-950/60 backdrop-blur-xs">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-magnolia-200 space-y-4 animate-scale-in">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <x-lucide-sparkles class="w-5 h-5 text-broom-600" />
+                    <h3 class="text-base font-extrabold font-heading text-cloud-burst-950">Gerar Avaliação Automática</h3>
+                </div>
+                <button type="button" onclick="document.getElementById('modal-auto-select').classList.add('hidden')"
+                        class="cursor-pointer text-cloud-burst-400 hover:text-cloud-burst-700 p-1">
+                    <x-lucide-x class="w-5 h-5" />
+                </button>
+            </div>
+
+            <p class="text-xs text-cloud-burst-700 leading-relaxed">
+                O sistema selecionará automaticamente as questões do seu banco com base na área do conhecimento, turma, descritor pedagógico e quantidade desejada.
+            </p>
+
+            <div class="space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="auto_area" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1">
+                            Área do Conhecimento
+                        </label>
+                        <select id="auto_area" class="w-full px-3 py-2 text-xs border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none bg-white">
+                            <option value="">Todas as áreas</option>
+                            @foreach($areas as $area)
+                                <option value="{{ $area }}">{{ $area }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="auto_grade" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1">
+                            Turma / Ano Escolar
+                        </label>
+                        <select id="auto_grade" class="w-full px-3 py-2 text-xs border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none bg-white">
+                            <option value="">Todas as turmas</option>
+                            @foreach($gradeLevels as $grade)
+                                <option value="{{ $grade }}">{{ $grade }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="auto_focus" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1">
+                        Descritor / Foco Pedagógico / Habilidade (opcional)
+                    </label>
+                    <input id="auto_focus" type="text" placeholder="Ex.: Efeito do adjetivo, D1, Frações..."
+                           class="w-full px-3 py-2 text-xs border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="auto_quantity" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1">
+                            Quantidade de Questões (N) <span class="text-shocking-pink-600">*</span>
+                        </label>
+                        <input id="auto_quantity" type="number" min="1" max="100" value="10"
+                               class="w-full px-3 py-2 text-xs border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none font-bold">
+                    </div>
+
+                    <div>
+                        <label for="auto_mode" class="block text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider mb-1">
+                            Critério de Seleção
+                        </label>
+                        <select id="auto_mode" class="w-full px-3 py-2 text-xs border border-magnolia-300 rounded-xl focus:border-royal-purple-800 focus:outline-none bg-white">
+                            <option value="random">Aleatório (Sorteio)</option>
+                            <option value="latest">Mais Recentes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="auto-select-feedback" class="hidden p-3 rounded-xl text-xs font-medium"></div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-magnolia-100">
+                <button type="button" onclick="document.getElementById('modal-auto-select').classList.add('hidden')"
+                        class="cursor-pointer px-4 py-2 border border-magnolia-300 rounded-xl text-xs font-bold font-heading text-cloud-burst-800 hover:bg-magnolia-50 transition">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-run-auto-select"
+                        class="cursor-pointer px-5 py-2 bg-royal-purple-800 hover:bg-royal-purple-900 text-white font-bold font-heading text-xs rounded-xl shadow-2xs transition flex items-center gap-1.5">
+                    <x-lucide-sparkles class="w-4 h-4 text-broom-400" />
+                    <span>Selecionar Questões</span>
+                </button>
+            </div>
+        </div>
+    </div>
     </div>
 </x-layouts.admin>

@@ -324,3 +324,94 @@ test('fechamento da sala e irreversivel e entrar na devolutiva encerra a sala ex
         ->assertSee('Mariana Acerto')
         ->assertSee('Lucas Erro');
 });
+
+test('professor pode deletar a resposta de um estudante na sala antes e depois do fechamento', function () {
+    $professor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+    $assessment = Assessment::create(['user_id' => $professor->id, 'title' => 'Simulado de Teste Exclusão']);
+    $question = Question::create([
+        'user_id' => $professor->id,
+        'prompt' => 'Questão para deletar resposta',
+        'support_type' => 'text',
+        'correct_option' => 'A',
+    ]);
+    $assessment->questions()->attach($question->id, ['order' => 1]);
+
+    // 1. Em sala ativa
+    $classroom = Classroom::create([
+        'user_id' => $professor->id,
+        'assessment_id' => $assessment->id,
+        'name' => 'Sala Ativa Exclusão',
+        'code' => 'DEL-01',
+        'is_active' => true,
+    ]);
+
+    $attempt1 = StudentAttempt::create([
+        'classroom_id' => $classroom->id,
+        'student_name' => 'Estudante Sala Ativa',
+        'started_at' => now(),
+    ]);
+
+    $answer1 = StudentAnswer::create([
+        'student_attempt_id' => $attempt1->id,
+        'question_id' => $question->id,
+        'initial_answer' => 'A',
+    ]);
+
+    $response = $this->actingAs($professor)
+        ->from(route('professor.salas.show', $classroom))
+        ->delete(route('professor.salas.tentativa.destroy', [$classroom, $attempt1]));
+
+    $response->assertRedirect(route('professor.salas.show', $classroom));
+    $response->assertSessionHas('success', "Resposta do estudante {$attempt1->student_name} excluída com sucesso.");
+
+    $this->assertDatabaseMissing('student_attempts', ['id' => $attempt1->id]);
+    $this->assertDatabaseMissing('student_answers', ['id' => $answer1->id]);
+
+    // 2. Em sala fechada / pós-devolutiva
+    $classroom->update(['is_active' => false]);
+
+    $attempt2 = StudentAttempt::create([
+        'classroom_id' => $classroom->id,
+        'student_name' => 'Estudante Sala Fechada',
+        'started_at' => now(),
+    ]);
+
+    $answer2 = StudentAnswer::create([
+        'student_attempt_id' => $attempt2->id,
+        'question_id' => $question->id,
+        'initial_answer' => 'B',
+    ]);
+
+    $responseClosed = $this->actingAs($professor)
+        ->from(route('professor.salas.show', $classroom))
+        ->delete(route('professor.salas.tentativa.destroy', [$classroom, $attempt2]));
+
+    $responseClosed->assertRedirect(route('professor.salas.show', $classroom));
+    $this->assertDatabaseMissing('student_attempts', ['id' => $attempt2->id]);
+    $this->assertDatabaseMissing('student_answers', ['id' => $answer2->id]);
+});
+
+test('outro professor nao pode deletar a resposta de estudante de sala alheia', function () {
+    $professorDono = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+    $outroProfessor = User::factory()->create(['role' => 'professor', 'status' => 'active']);
+
+    $assessment = Assessment::create(['user_id' => $professorDono->id, 'title' => 'Simulado']);
+    $classroom = Classroom::create([
+        'user_id' => $professorDono->id,
+        'assessment_id' => $assessment->id,
+        'name' => 'Sala Dono',
+        'code' => 'DEL-02',
+    ]);
+
+    $attempt = StudentAttempt::create([
+        'classroom_id' => $classroom->id,
+        'student_name' => 'Estudante Não Autorizado',
+        'started_at' => now(),
+    ]);
+
+    $this->actingAs($outroProfessor)
+        ->delete(route('professor.salas.tentativa.destroy', [$classroom, $attempt]))
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('student_attempts', ['id' => $attempt->id]);
+});

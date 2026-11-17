@@ -59,6 +59,7 @@ class StudentJoinedClassroom implements ShouldBroadcastNow
                 'access_code' => $this->attempt->access_code,
                 'started_at' => $this->attempt->started_at->format('d/m/Y H:i'),
                 'score' => $this->attempt->score,
+                'is_device_authorized' => (bool) $this->attempt->is_device_authorized,
             ],
         ];
     }

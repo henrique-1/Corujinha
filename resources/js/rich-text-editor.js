@@ -54,6 +54,9 @@ export function initRichTextEditor() {
             textarea.value = ed.isEmpty ? '' : ed.getHTML();
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
             updateToolbarState();
+            if (window.MathHelper?.updateSupportMathPreview) {
+                window.MathHelper.updateSupportMathPreview();
+            }
         },
         onSelectionUpdate() {
             updateToolbarState();
@@ -62,6 +65,11 @@ export function initRichTextEditor() {
             updateToolbarState();
         },
     });
+
+    window.__SUPPORT_TEXT_EDITOR__ = editor;
+    if (window.MathHelper?.updateSupportMathPreview) {
+        window.MathHelper.updateSupportMathPreview();
+    }
 
     const buttons = toolbarEl.querySelectorAll('[data-rte-action]');
 

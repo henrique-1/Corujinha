@@ -22,6 +22,7 @@
         "@tiptap/core": "^3.33.1",
         "@tiptap/starter-kit": "^3.33.1",
         "dompurify": "^3.4.17",
+        "katex": "^0.19.1",
         "webauthn-polyfills": "^0.1.7"
     }
 }

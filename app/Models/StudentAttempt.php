@@ -22,11 +22,16 @@ class StudentAttempt extends Model
         'access_code',
         'classroom_id',
         'student_name',
+        'device_identifier',
+        'device_ip',
+        'is_device_authorized',
         'started_at',
         'completed_at',
         'reviewed_at',
         'status',
         'score',
+        'tab_switches_count',
+        'tab_switches_log',
     ];
 
     protected $hidden = [
@@ -82,7 +87,42 @@ class StudentAttempt extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'is_device_authorized' => 'boolean',
+            'tab_switches_count' => 'integer',
+            'tab_switches_log' => 'array',
         ];
+    }
+
+    public function isWaitingAuthorization(): bool
+    {
+        return $this->status === 'waiting_authorization' || ! $this->is_device_authorized;
+    }
+
+    public function authorizeDevice(): void
+    {
+        $this->update([
+            'status' => 'in_progress',
+            'is_device_authorized' => true,
+        ]);
+    }
+
+    /**
+     * Registra uma troca de aba ou saída de tela do aluno.
+     */
+    public function recordTabSwitch(?string $reason = null): int
+    {
+        $log = is_array($this->tab_switches_log) ? $this->tab_switches_log : [];
+        $log[] = [
+            'timestamp' => now()->toIso8601String(),
+            'reason' => $reason ?? 'visibility_hidden',
+        ];
+
+        $this->forceFill([
+            'tab_switches_count' => (int) $this->tab_switches_count + 1,
+            'tab_switches_log' => $log,
+        ])->save();
+
+        return (int) $this->tab_switches_count;
     }
 
     public function classroom(): BelongsTo
@@ -111,6 +151,10 @@ class StudentAttempt extends Model
             ->unique('question_id');
 
         $correct = $answers->filter(function (StudentAnswer $ans) {
+            if ($ans->is_manually_graded) {
+                return (bool) $ans->is_correct_final;
+            }
+
             if ($this->status === 'reviewed' || $ans->reviewed_answer !== null) {
                 return (bool) $ans->is_correct_final;
             }
@@ -142,12 +186,20 @@ class StudentAttempt extends Model
             ->unique('question_id');
 
         return (float) $validAnswers->sum(function (StudentAnswer $ans) use ($pointsMap) {
+            if ($ans->is_manually_graded && $ans->manual_score !== null) {
+                return (float) $ans->manual_score;
+            }
+
             $isCorrect = ($this->status === 'reviewed' || $ans->reviewed_answer !== null)
                 ? (bool) $ans->is_correct_final
                 : (bool) $ans->is_correct_initial;
 
             if (! $isCorrect) {
                 return 0.0;
+            }
+
+            if ($ans->score !== null) {
+                return (float) $ans->score;
             }
 
             return (float) ($pointsMap[$ans->question_id] ?? 1.0);

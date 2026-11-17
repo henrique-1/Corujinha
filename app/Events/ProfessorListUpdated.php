@@ -3,7 +3,6 @@
 namespace App\Events;
 
 use App\Models\User;
-use App\Rules\CpfRule;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -53,9 +52,9 @@ class ProfessorListUpdated implements ShouldBroadcastNow
                 'id' => $this->professor->uuid,
                 'name' => $this->professor->name,
                 'email' => $this->professor->email,
-                'cpf' => $this->professor->cpf ? CpfRule::format($this->professor->cpf) : 'Pendente de preenchimento',
                 'is_active' => $this->professor->isActive(),
                 'is_totp_enabled' => $this->professor->isTotpEnabled(),
+                'teaching_areas' => $this->professor->teachingAreas->pluck('name')->values()->all(),
             ],
         ];
     }

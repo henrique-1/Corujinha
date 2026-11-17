@@ -39,13 +39,56 @@
                                 <td class="py-4 px-6 font-bold font-heading text-cloud-burst-950">
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <span>{{ $sala->name }}</span>
-                                        @if(! $sala->is_active)
+                                        @if($sala->isCorujao())
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-shocking-pink-100 text-shocking-pink-900 border border-shocking-pink-300">
+                                                <picture class="shrink-0">
+                                                    <source srcset="{{ asset('images/logo/CORUJAO_ICONE.avif') }}" type="image/avif">
+                                                    <source srcset="{{ asset('images/logo/CORUJAO_ICONE.webp') }}" type="image/webp">
+                                                    <img src="{{ asset('images/logo/CORUJAO_300_DPI.png') }}" alt="Corujão" class="w-3.5 h-3.5 object-contain inline">
+                                                </picture>
+                                                <span>Corujão</span>
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-broom-100 text-broom-950 border border-broom-300">
+                                                <picture class="shrink-0">
+                                                    <source srcset="{{ asset('images/logo/corujinha-icone.avif') }}" type="image/avif">
+                                                    <source srcset="{{ asset('images/logo/corujinha-icone.webp') }}" type="image/webp">
+                                                    <img src="{{ asset('images/logo/corujinha-icone.png') }}" alt="Corujinha" class="w-3.5 h-3.5 object-contain inline">
+                                                </picture>
+                                                <span>Corujinha</span>
+                                            </span>
+                                        @endif
+                                        @php
+                                            $availability = $sala->accessAvailability();
+                                        @endphp
+                                        @if($availability['available'])
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                <x-lucide-check-circle class="w-3 h-3 text-emerald-600" />
+                                                <span>Aberta</span>
+                                            </span>
+                                        @elseif($availability['reason'] === 'not_started')
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                                <x-lucide-clock class="w-3 h-3 text-indigo-600" />
+                                                <span>Agendada</span>
+                                            </span>
+                                        @elseif($availability['reason'] === 'expired')
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-rose-100 text-rose-800 border border-rose-200">
+                                                <x-lucide-clock class="w-3 h-3 text-rose-600" />
+                                                <span>Prazo Encerrado</span>
+                                            </span>
+                                        @else
                                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-heading bg-gray-100 text-gray-700 border border-gray-300">
                                                 <x-lucide-lock class="w-3 h-3" />
                                                 <span>Fechada</span>
                                             </span>
                                         @endif
                                     </div>
+                                    @if($sala->starts_at || $sala->ends_at)
+                                        <div class="text-[11px] text-royal-purple-800 flex items-center gap-1 mt-1 font-normal">
+                                            <x-lucide-calendar-clock class="w-3 h-3" />
+                                            <span>{{ $sala->scheduleDescription() }}</span>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="py-4 px-6 text-cloud-burst-800">
                                     {{ $sala->assessment->title }}

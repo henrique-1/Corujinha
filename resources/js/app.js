@@ -1,4 +1,5 @@
 import { initDialogSystem } from './dialog-modal';
+import './math-helper';
 
 document.addEventListener('DOMContentLoaded', () => {
     initDialogSystem();

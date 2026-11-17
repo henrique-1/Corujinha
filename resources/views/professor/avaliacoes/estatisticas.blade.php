@@ -26,6 +26,22 @@
                     @if($assessment->description)
                         <p class="text-sm text-cloud-burst-700">{{ $assessment->description }}</p>
                     @endif
+                    <div class="pt-1 flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="document.getElementById('modal-exportar-avaliacao')?.classList.remove('hidden')"
+                                class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition inline-flex items-center gap-2">
+                            <x-lucide-download class="w-4 h-4 text-emerald-200" />
+                            <span>Exportar Relatório Consolidado</span>
+                        </button>
+
+                        <form action="{{ route('professor.avaliacoes.relatorio.email', $assessment) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" class="cursor-pointer text-xs font-bold font-heading px-4 py-2.5 rounded-xl border border-royal-purple-300 bg-royal-purple-50 hover:bg-royal-purple-100 text-royal-purple-900 shadow-2xs transition inline-flex items-center gap-2"
+                                    title="Enviar relatório consolidado para {{ Auth::user()->email }}">
+                                <x-lucide-mail class="w-4 h-4 text-royal-purple-800" />
+                                <span>Enviar por E-mail</span>
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-3 shrink-0">
@@ -205,6 +221,90 @@
                     </div>
                 @endif
             </section>
+        </div>
+    </div>
+    {{-- Modal de Exportação do Relatório Consolidado da Avaliação --}}
+    <div id="modal-exportar-avaliacao" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="fixed inset-0 bg-cloud-burst-950/60 backdrop-blur-xs transition-opacity" onclick="document.getElementById('modal-exportar-avaliacao')?.classList.add('hidden')"></div>
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-lg bg-white rounded-3xl p-6 md:p-8 shadow-2xl border border-magnolia-200 space-y-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="space-y-1">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-heading bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <x-lucide-bar-chart-3 class="w-3.5 h-3.5" />
+                            <span>Exportar Relatório Consolidado</span>
+                        </span>
+                        <h3 class="text-xl font-extrabold font-heading text-cloud-burst-950">
+                            {{ $assessment->title }}
+                        </h3>
+                        <p class="text-xs text-cloud-burst-700">Baixe os dados consolidados somando todas as turmas que realizaram esta avaliação.</p>
+                    </div>
+                    <button type="button" onclick="document.getElementById('modal-exportar-avaliacao')?.classList.add('hidden')"
+                            class="cursor-pointer p-1.5 text-cloud-burst-400 hover:text-cloud-burst-900 rounded-lg hover:bg-gray-100 transition">
+                        <x-lucide-x class="w-5 h-5" />
+                    </button>
+                </div>
+
+                {{-- Downloads Imediatos --}}
+                <div class="space-y-2.5">
+                    <span class="block text-xs font-bold font-heading uppercase text-cloud-burst-800 tracking-wider">
+                        Opções de Download:
+                    </span>
+
+                    <a href="{{ route('professor.avaliacoes.relatorio.download', ['avaliacao' => $assessment, 'type' => 'zip']) }}"
+                       class="flex items-center justify-between p-3.5 rounded-2xl border-2 border-emerald-600 bg-emerald-50/60 hover:bg-emerald-100/60 transition group shadow-2xs">
+                        <div class="flex items-center gap-3">
+                            <span class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                                <x-lucide-archive class="w-5 h-5" />
+                            </span>
+                            <div>
+                                <span class="text-xs font-bold font-heading text-emerald-950 block">Pacote Consolidado (.ZIP)</span>
+                                <span class="text-[11px] text-emerald-800">Contém o PDF executivo e a planilha XLSX de todas as salas</span>
+                            </div>
+                        </div>
+                        <x-lucide-download class="w-4 h-4 text-emerald-700 group-hover:translate-y-0.5 transition" />
+                    </a>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <a href="{{ route('professor.avaliacoes.relatorio.download', ['avaliacao' => $assessment, 'type' => 'pdf']) }}"
+                           class="flex flex-col items-center justify-center p-3 rounded-xl border border-magnolia-300 hover:border-royal-purple-600 hover:bg-royal-purple-50/50 transition text-center group">
+                            <x-lucide-file-text class="w-5 h-5 text-shocking-pink-600 mb-1" />
+                            <span class="text-xs font-bold font-heading text-cloud-burst-950">Relatório PDF</span>
+                            <span class="text-[10px] text-cloud-burst-600">Visual executivo multi-salas</span>
+                        </a>
+
+                        <a href="{{ route('professor.avaliacoes.relatorio.download', ['avaliacao' => $assessment, 'type' => 'xlsx']) }}"
+                           class="flex flex-col items-center justify-center p-3 rounded-xl border border-magnolia-300 hover:border-emerald-600 hover:bg-emerald-50/50 transition text-center group">
+                            <x-lucide-file-spreadsheet class="w-5 h-5 text-emerald-600 mb-1" />
+                            <span class="text-xs font-bold font-heading text-cloud-burst-950">Planilha XLSX</span>
+                            <span class="text-[10px] text-cloud-burst-600">Matriz geral de notas</span>
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Envio por E-mail --}}
+                <div class="pt-4 border-t border-magnolia-200">
+                    <form action="{{ route('professor.avaliacoes.relatorio.email', $assessment) }}" method="POST" class="space-y-2.5">
+                        @csrf
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-bold font-heading text-cloud-burst-950 uppercase tracking-wider flex items-center gap-1.5">
+                                <x-lucide-mail class="w-3.5 h-3.5 text-royal-purple-800" />
+                                <span>Receber Relatório por E-mail</span>
+                            </span>
+                            <span class="text-[11px] text-cloud-burst-600 font-medium">
+                                Para: <strong class="text-cloud-burst-950">{{ Auth::user()->email }}</strong>
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-cloud-burst-700 leading-relaxed">
+                            Os arquivos <code>.pdf</code> e <code>.xlsx</code> consolidados serão enviados diretamente para o seu e-mail cadastrado.
+                        </p>
+                        <button type="submit" class="cursor-pointer w-full py-2.5 px-4 bg-royal-purple-800 hover:bg-royal-purple-900 text-white rounded-xl text-xs font-bold font-heading shadow-xs transition flex items-center justify-center gap-2">
+                            <x-lucide-send class="w-3.5 h-3.5" />
+                            <span>Enviar por E-mail ({{ Auth::user()->email }})</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 </x-layouts.admin>

@@ -10,12 +10,16 @@ use App\Models\Question;
 use App\Models\StudentAnswer;
 use App\Models\StudentAttempt;
 use App\Services\BroadcastService;
+use App\Services\MathComparisonService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClassroomPlayerController extends Controller
 {
@@ -59,17 +63,50 @@ class ClassroomPlayerController extends Controller
             ]);
         }
 
-        if (! $classroom->is_active) {
+        $availability = $classroom->accessAvailability();
+        if (! $availability['available']) {
             return back()->withInput()->withErrors([
-                'code' => 'Esta sala de aula está fechada para novas respostas.',
+                'code' => $availability['message'],
             ]);
+        }
+
+        $deviceIdentifier = $request->input('device_identifier');
+        $deviceIdentifier = is_string($deviceIdentifier) && trim($deviceIdentifier) !== '' ? trim($deviceIdentifier) : null;
+        $isAuthorized = true;
+        $status = 'in_progress';
+
+        // Verificação de dispositivo na sala de aula
+        if ($deviceIdentifier) {
+            $existingAttempt = StudentAttempt::where('classroom_id', $classroom->id)
+                ->where('device_identifier', $deviceIdentifier)
+                ->latest()
+                ->first();
+
+            if ($existingAttempt) {
+                $normalizedInputName = mb_strtolower(trim($validated['student_name']));
+                $normalizedExistingName = mb_strtolower(trim($existingAttempt->student_name));
+
+                // Aluno repetido que já concluiu neste dispositivo
+                if ($normalizedInputName === $normalizedExistingName && in_array($existingAttempt->status, ['submitted', 'reviewed'], true)) {
+                    return back()->withInput()->withErrors([
+                        'code' => 'Você já respondeu a esta avaliação neste dispositivo. Se precisar responder novamente, solicite ao seu professor que remova a sua resposta anterior no painel da sala.',
+                    ]);
+                }
+
+                // Dispositivo compartilhado (laboratório de informática / outro aluno usando a mesma máquina)
+                $status = 'waiting_authorization';
+                $isAuthorized = false;
+            }
         }
 
         $attempt = StudentAttempt::create([
             'classroom_id' => $classroom->id,
             'student_name' => trim($validated['student_name']),
+            'device_identifier' => $deviceIdentifier,
+            'device_ip' => $request->ip(),
+            'is_device_authorized' => $isAuthorized,
             'started_at' => now(),
-            'status' => 'in_progress',
+            'status' => $status,
         ]);
 
         BroadcastService::dispatch(new StudentJoinedClassroom($attempt));
@@ -79,6 +116,10 @@ class ClassroomPlayerController extends Controller
             'current_attempt_id' => $attempt->id,
             'current_classroom_code' => $classroom->code,
         ]);
+
+        if (! $isAuthorized) {
+            return redirect()->route('estudante.aguardando_autorizacao', ['code' => $classroom->code]);
+        }
 
         return redirect()->route('estudante.player', ['code' => $classroom->code]);
     }
@@ -128,9 +169,10 @@ class ClassroomPlayerController extends Controller
             'current_classroom_code' => $classroom->code,
         ]);
 
-        if (! $classroom->is_active) {
+        $availability = $classroom->accessAvailability();
+        if (! $availability['available']) {
             return redirect()->route('estudante.resultado', ['code' => $classroom->code])
-                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+                ->with('info', $availability['message'] ?? 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
         }
 
         if ($attempt->status === 'in_progress') {
@@ -167,9 +209,14 @@ class ClassroomPlayerController extends Controller
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
         }
 
-        if (! $classroom->is_active) {
+        if ($attempt->isWaitingAuthorization()) {
+            return redirect()->route('estudante.aguardando_autorizacao', ['code' => $classroom->code]);
+        }
+
+        $availability = $classroom->accessAvailability();
+        if (! $availability['available']) {
             return redirect()->route('estudante.resultado', ['code' => $classroom->code])
-                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+                ->with('info', $availability['message'] ?? 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
         }
 
         if ($attempt->status !== 'in_progress') {
@@ -198,6 +245,7 @@ class ClassroomPlayerController extends Controller
                     'answer' => $savedAnswer->initial_answer,
                     'reason' => $savedAnswer->initial_reason,
                     'markers' => $savedAnswer->initial_markers ?? [],
+                    'resolution_image_url' => $savedAnswer->resolution_image_url,
                     'timeUsed' => $savedAnswer->time_spent_seconds * 1000,
                 ] : null,
             ]);
@@ -207,6 +255,50 @@ class ClassroomPlayerController extends Controller
             'classroom' => $classroom,
             'attempt' => $attempt,
             'questionsData' => $questionsData,
+        ]);
+    }
+
+    /**
+     * Tela de espera para dispositivo compartilhado aguardando autorização do professor.
+     */
+    public function waitingAuthorization(string $code): View|RedirectResponse
+    {
+        $classroom = Classroom::where('code', strtoupper($code))->firstOrFail();
+        $attempt = $this->getAttempt($classroom);
+
+        if (! $attempt) {
+            return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
+        }
+
+        if (! $attempt->isWaitingAuthorization()) {
+            return redirect()->route('estudante.player', ['code' => $classroom->code]);
+        }
+
+        return view('estudante.aguardando-autorizacao', [
+            'classroom' => $classroom,
+            'attempt' => $attempt,
+        ]);
+    }
+
+    /**
+     * Endpoint para verificação de status de autorização do dispositivo (polling leve).
+     */
+    public function checkAuthorizationStatus(string $code): JsonResponse
+    {
+        $classroom = Classroom::where('code', strtoupper($code))->firstOrFail();
+        $attempt = $this->getAttempt($classroom);
+
+        if (! $attempt) {
+            return response()->json([
+                'authorized' => false,
+                'redirect' => route('estudante.entrar', ['code' => $classroom->code], false),
+            ], 401);
+        }
+
+        return response()->json([
+            'authorized' => ! $attempt->isWaitingAuthorization(),
+            'status' => $attempt->status,
+            'redirect' => route('estudante.player', ['code' => $classroom->code], false),
         ]);
     }
 
@@ -222,11 +314,12 @@ class ClassroomPlayerController extends Controller
             return response()->json(['error' => 'Sessão expirada. Faça login na sala novamente.'], 401);
         }
 
-        if (! $classroom->is_active) {
+        $availability = $classroom->accessAvailability();
+        if (! $availability['available']) {
             return response()->json([
                 'closed' => true,
                 'redirect_url' => route('estudante.resultado', ['code' => $classroom->code], false),
-                'error' => 'A avaliação foi finalizada pelo professor. Você será redirecionado para a tela de resultado e devolutiva.',
+                'error' => $availability['message'] ?? 'A avaliação foi finalizada pelo professor.',
             ], 422);
         }
 
@@ -236,26 +329,7 @@ class ClassroomPlayerController extends Controller
             ], 422);
         }
 
-        if (is_string($request->input('answer'))) {
-            $request->merge(['answer' => trim(strtoupper($request->input('answer')))]);
-        }
-
-        $validated = $request->validate([
-            'question_id' => ['required'],
-            'answer' => ['required', 'string', 'in:A,B,C,D,E'],
-            'reason' => ['required', 'string', 'max:5000'],
-            'markers' => ['nullable', 'array', 'max:200'],
-            'markers.*' => ['required', 'array'],
-            'markers.*.id' => ['nullable', 'string', 'max:64'],
-            'markers.*.kind' => ['required', 'string', 'in:command,evidence,clue'],
-            'markers.*.target' => ['nullable', 'string', 'in:source,support,prompt,title'],
-            'markers.*.text' => ['nullable', 'string', 'max:2000'],
-            'markers.*.start' => ['nullable', 'integer', 'min:0'],
-            'markers.*.end' => ['nullable', 'integer', 'min:0'],
-            'time_spent' => ['nullable', 'integer', 'min:0'],
-        ]);
-
-        $questionIdentifier = $validated['question_id'];
+        $questionIdentifier = $request->input('question_id');
         if (! is_string($questionIdentifier) && ! is_int($questionIdentifier)) {
             return response()->json(['error' => 'Identificador de questão inválido.'], 422);
         }
@@ -277,38 +351,99 @@ class ClassroomPlayerController extends Controller
             ], 422);
         }
 
-        $givenAnswer = trim(strtoupper($validated['answer']));
-        $correctAnswer = trim(strtoupper($question->correct_option));
-        $isCorrect = ($givenAnswer === $correctAnswer);
+        $isDirectInput = $question->isDirectInput();
+        $isTimeout = $request->boolean('is_timeout');
 
-        // Validação das regras de marca-texto da questão
-        $markers = array_values(array_map(function (array $m): array {
-            return [
-                'id' => isset($m['id']) ? (string) $m['id'] : null,
-                'kind' => (string) $m['kind'],
-                'target' => isset($m['target']) ? (string) $m['target'] : null,
-                'text' => isset($m['text']) && is_string($m['text']) ? $m['text'] : '',
-                'start' => isset($m['start']) ? (int) $m['start'] : null,
-                'end' => isset($m['end']) ? (int) $m['end'] : null,
-            ];
-        }, $validated['markers'] ?? []));
-
-        $hasCommandMarker = collect($markers)->contains('kind', 'command');
-        $hasClueMarker = collect($markers)->contains(fn ($m) => in_array($m['kind'] ?? '', ['evidence', 'clue'], true));
-
-        if ($question->require_command_highlight && ! $hasCommandMarker) {
-            return response()->json([
-                'error' => 'Para avançar, você deve destacar o comando da questão com o Marca-Texto Amarelo.',
-            ], 422);
+        // Sanitização de resposta vazia para null
+        $rawAnswer = $request->input('answer');
+        if (is_string($rawAnswer)) {
+            $rawAnswer = trim($rawAnswer);
+            if ($rawAnswer === '') {
+                $rawAnswer = null;
+            } elseif (! $isDirectInput) {
+                $rawAnswer = strtoupper($rawAnswer);
+            }
         }
+        $request->merge(['answer' => $rawAnswer]);
 
-        if ($question->require_clue_highlight && ! $hasClueMarker) {
-            return response()->json([
-                'error' => 'Para avançar, você deve destacar as pistas no texto de apoio com o Marca-Texto Azul.',
-            ], 422);
+        if ($isDirectInput) {
+            $validated = $request->validate([
+                'question_id' => ['required'],
+                'answer' => [$isTimeout ? 'nullable' : 'required', 'nullable', 'string', 'max:2000'],
+                'reason' => ['nullable', 'string', 'max:5000'],
+                'resolution_image' => ['nullable', 'image', 'max:10240'],
+                'time_spent' => ['nullable', 'integer', 'min:0'],
+            ], [
+                'answer.required' => 'Digite a sua resposta para a questão.',
+                'resolution_image.image' => 'O arquivo da resolução deve ser uma imagem válida (JPG, PNG, WEBP).',
+                'resolution_image.max' => 'A imagem da resolução deve ter no máximo 10 MB.',
+            ]);
+
+            $givenAnswer = isset($validated['answer']) && trim((string) $validated['answer']) !== ''
+                ? trim((string) $validated['answer'])
+                : null;
+
+            if ($givenAnswer === null) {
+                $isCorrect = false;
+            } else {
+                $mathService = app(MathComparisonService::class);
+                $isCorrect = $mathService->isEquivalent($givenAnswer, $question->expected_answer);
+            }
+            $markers = [];
+        } else {
+            $validated = $request->validate([
+                'question_id' => ['required'],
+                'answer' => [$isTimeout ? 'nullable' : 'required', 'nullable', 'string', 'in:A,B,C,D,E'],
+                'reason' => [$isTimeout ? 'nullable' : 'required', 'nullable', 'string', 'max:5000'],
+                'markers' => ['nullable', 'array', 'max:200'],
+                'markers.*' => ['required', 'array'],
+                'markers.*.id' => ['nullable', 'string', 'max:64'],
+                'markers.*.kind' => ['required', 'string', 'in:command,evidence,clue'],
+                'markers.*.target' => ['nullable', 'string', 'in:source,support,prompt,title'],
+                'markers.*.text' => ['nullable', 'string', 'max:2000'],
+                'markers.*.start' => ['nullable', 'integer', 'min:0'],
+                'markers.*.end' => ['nullable', 'integer', 'min:0'],
+                'time_spent' => ['nullable', 'integer', 'min:0'],
+            ]);
+
+            $givenAnswer = isset($validated['answer']) && trim((string) $validated['answer']) !== ''
+                ? trim(strtoupper((string) $validated['answer']))
+                : null;
+            $correctAnswer = trim(strtoupper((string) $question->correct_option));
+            $isCorrect = ($givenAnswer !== null && $givenAnswer !== '' && $givenAnswer === $correctAnswer);
+
+            $markers = array_values(array_map(function (array $m): array {
+                return [
+                    'id' => isset($m['id']) ? (string) $m['id'] : null,
+                    'kind' => (string) $m['kind'],
+                    'target' => isset($m['target']) ? (string) $m['target'] : null,
+                    'text' => isset($m['text']) && is_string($m['text']) ? $m['text'] : '',
+                    'start' => isset($m['start']) ? (int) $m['start'] : null,
+                    'end' => isset($m['end']) ? (int) $m['end'] : null,
+                ];
+            }, $validated['markers'] ?? []));
+
+            if (! $isTimeout) {
+                $hasCommandMarker = collect($markers)->contains('kind', 'command');
+                $hasClueMarker = collect($markers)->contains(fn ($m) => in_array($m['kind'] ?? '', ['evidence', 'clue'], true));
+
+                if ($question->require_command_highlight && ! $hasCommandMarker) {
+                    return response()->json([
+                        'error' => 'Para avançar, você deve destacar o comando da questão com o Marca-Texto Amarelo.',
+                    ], 422);
+                }
+
+                if ($question->require_clue_highlight && ! $hasClueMarker) {
+                    return response()->json([
+                        'error' => 'Para avançar, você deve destacar as pistas no texto de apoio com o Marca-Texto Azul.',
+                    ], 422);
+                }
+            }
         }
 
         $seconds = max(0, (int) round(($validated['time_spent'] ?? 0) / 1000));
+        $questionPoints = (float) ($question->pivot->points ?? 1.0);
+        $score = $isCorrect ? $questionPoints : 0.0;
 
         $attributes = [
             'student_attempt_id' => $attempt->id,
@@ -316,24 +451,60 @@ class ClassroomPlayerController extends Controller
         ];
         $values = [
             'initial_answer' => $givenAnswer,
-            'initial_reason' => $validated['reason'],
+            'initial_reason' => $validated['reason'] ?? '',
             'initial_markers' => $markers,
             'is_correct_initial' => $isCorrect,
             'is_correct_final' => $isCorrect,
+            'score' => $score,
             'time_spent_seconds' => $seconds,
         ];
 
+        if ($request->hasFile('resolution_image')) {
+            $imagePath = $request->file('resolution_image')->store('student_resolutions', 'local');
+            $values['resolution_image_path'] = $imagePath;
+        }
+
         try {
-            StudentAnswer::updateOrCreate($attributes, $values);
+            $saved = StudentAnswer::updateOrCreate($attributes, $values);
         } catch (UniqueConstraintViolationException) {
             StudentAnswer::where($attributes)->update($values);
+            $saved = StudentAnswer::where($attributes)->first();
         }
 
         $attempt->recalculateScore();
 
         BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'resolution_image_url' => $saved?->resolution_image_url,
+        ]);
+    }
+
+    /**
+     * Serve a imagem de resolução enviada pelo aluno com autenticação segura.
+     */
+    public function showResolutionImage(StudentAnswer $studentAnswer): StreamedResponse
+    {
+        $user = Auth::user();
+        $attemptId = session('current_attempt_id');
+
+        $isStudentOwner = ($attemptId && (int) $attemptId === (int) $studentAnswer->student_attempt_id);
+        $isTeacherOwner = ($user && $studentAnswer->attempt && $studentAnswer->attempt->classroom && ((int) $user->id === (int) $studentAnswer->attempt->classroom->user_id || $user->isSuperAdmin()));
+
+        if (! $isStudentOwner && ! $isTeacherOwner) {
+            abort(403, 'Acesso não autorizado a esta imagem de resolução.');
+        }
+
+        if (! $studentAnswer->resolution_image_path || ! Storage::disk('local')->exists($studentAnswer->resolution_image_path)) {
+            abort(404, 'Imagem de resolução não encontrada.');
+        }
+
+        return Storage::disk('local')->response(
+            $studentAnswer->resolution_image_path,
+            null,
+            ['Cache-Control' => 'private, max-age=3600']
+        );
     }
 
     /**
@@ -385,6 +556,29 @@ class ClassroomPlayerController extends Controller
     }
 
     /**
+     * Registra quando o estudante sai da aba de resolução ou perde o foco.
+     */
+    public function recordTabSwitch(Request $request, string $code): JsonResponse
+    {
+        $classroom = Classroom::where('code', strtoupper($code))->firstOrFail();
+        $attempt = $this->getAttempt($classroom);
+
+        if (! $attempt) {
+            return response()->json(['error' => 'Sessão expirada.'], 401);
+        }
+
+        $reason = $request->input('reason', 'visibility_hidden');
+        $newCount = $attempt->recordTabSwitch($reason);
+
+        BroadcastService::dispatch(new StudentAttemptUpdated($attempt));
+
+        return response()->json([
+            'success' => true,
+            'tab_switches_count' => $newCount,
+        ]);
+    }
+
+    /**
      * Tela de Revisão e Correção Coletiva.
      */
     public function showReview(string $code): View|RedirectResponse
@@ -400,9 +594,14 @@ class ClassroomPlayerController extends Controller
             return redirect()->route('estudante.entrar', ['code' => $classroom->code]);
         }
 
-        if (! $classroom->is_active) {
+        if ($attempt->isWaitingAuthorization()) {
+            return redirect()->route('estudante.aguardando_autorizacao', ['code' => $classroom->code]);
+        }
+
+        $availability = $classroom->accessAvailability();
+        if (! $availability['available']) {
             return redirect()->route('estudante.resultado', ['code' => $classroom->code])
-                ->with('info', 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
+                ->with('info', $availability['message'] ?? 'A avaliação foi finalizada pelo professor. Confira abaixo seu resultado e a devolutiva.');
         }
 
         if ($attempt->status === 'in_progress') {

@@ -22,7 +22,7 @@
                         <tr class="bg-royal-purple-50/70 border-b border-magnolia-200 text-cloud-burst-800 text-xs font-bold font-heading uppercase tracking-wider">
                             <th class="py-3.5 px-6">Nome</th>
                             <th class="py-3.5 px-6">E-mail</th>
-                            <th class="py-3.5 px-6">CPF</th>
+                            <th class="py-3.5 px-6">Área de Atuação</th>
                             <th class="py-3.5 px-6">Status da Conta</th>
                             <th class="py-3.5 px-6">MFA (TOTP)</th>
                             <th class="py-3.5 px-6 text-center whitespace-nowrap min-w-[240px]">Ações</th>
@@ -37,8 +37,18 @@
                                 <td class="py-4 px-6 text-cloud-burst-800">
                                     {{ $prof->email }}
                                 </td>
-                                <td class="py-4 px-6 text-cloud-burst-800 font-mono text-xs" id="prof-cpf-{{ $prof->uuid }}">
-                                    {{ $prof->cpf ? \App\Rules\CpfRule::format($prof->cpf) : 'Pendente de preenchimento' }}
+                                <td class="py-4 px-6" id="prof-areas-{{ $prof->uuid }}">
+                                    @if($prof->teachingAreas->isNotEmpty())
+                                        <div class="flex flex-wrap gap-1.5 max-w-xs">
+                                            @foreach($prof->teachingAreas as $area)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-royal-purple-50 text-royal-purple-800 border border-royal-purple-200">
+                                                    {{ $area->name }}
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-cloud-burst-400 font-medium">—</span>
+                                    @endif
                                 </td>
                                 <td class="py-4 px-6" id="prof-status-{{ $prof->uuid }}">
                                     @if($prof->isActive())
