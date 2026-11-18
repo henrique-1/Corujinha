@@ -13,6 +13,8 @@
     @fonts
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <x-clarity />
 </head>
 <body class="h-full flex flex-col font-sans text-cloud-burst-950 antialiased bg-magnolia-100">
     {{-- Top Navigation --}}

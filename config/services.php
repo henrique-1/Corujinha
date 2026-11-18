@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'clarity' => [
+        'id' => env('MICROSOFT_CLARITY_ID', 'zfl6cyyfh8'),
+    ],
+
 ];

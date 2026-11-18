@@ -27,6 +27,7 @@
             <div class="mt-2 pl-3 border-l-2 border-broom-400/40 space-y-1 text-royal-purple-200/80 leading-normal">
                 <p>• <strong>Sessão & Segurança:</strong> Cookies de autenticação CSRF e token de sessão do usuário.</p>
                 <p>• <strong>Identificador de Dispositivo:</strong> Identificação de máquina/navegador para controle de respostas únicas e turmas com laboratório compartilhado.</p>
+                <p>• <strong>Métricas & Usabilidade (Microsoft Clarity):</strong> Análise anônima de navegação e mapa de calor para aprimoramento da experiência pedagógica.</p>
             </div>
         </details>
 

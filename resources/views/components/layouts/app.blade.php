@@ -28,6 +28,8 @@
     @fonts
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <x-clarity />
 </head>
 <body class="bg-magnolia-100 text-cloud-burst-950 font-sans antialiased min-h-screen flex flex-col">
     {{ $slot }}
