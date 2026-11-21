@@ -1,6 +1,5 @@
 <x-layouts.app title="Corujinha · Sala de Avaliação e Provas Online"
-               meta-description="Acesse a sala de avaliação do Corujinha (Prepara Avalia+). Digite o código da sala fornecido pelo professor para iniciar ou retomar seu simulado e prova online."
-               :canonical-url="route('estudante.entrar')">
+               meta-description="Acesse a sala de avaliação do Corujinha (Prepara Avalia+). Digite o código da sala fornecido pelo professor para iniciar ou retomar seu simulado e prova online.">
     @php
         $resumeActive = old('resume_code') !== null || $errors->has('access_code') || request()->query('modo') === 'retomar';
     @endphp
@@ -12,7 +11,7 @@
         '@type' => 'WebApplication',
         'name' => 'Corujinha',
         'alternateName' => ['Prepara Avalia+', 'Corujinha Avaliações'],
-        'url' => route('estudante.entrar'),
+        'url' => url()->current(),
         'applicationCategory' => 'EducationalApplication',
         'operatingSystem' => 'All',
         'description' => 'Plataforma para realização de avaliações, simulados escolares e acompanhamento de aprendizagem em tempo real.',
