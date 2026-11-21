@@ -25,7 +25,12 @@ class GenerateSitemapCommand extends Command
      */
     public function handle(): int
     {
-        $baseUrl = rtrim((string) ($this->option('base-url') ?: config('app.url')), '/');
+        $configuredUrl = config('app.url');
+        $defaultUrl = (! empty($configuredUrl) && ! str_contains($configuredUrl, 'localhost'))
+            ? $configuredUrl
+            : 'https://corujinha.bissoli.tech';
+
+        $baseUrl = rtrim((string) ($this->option('base-url') ?: $defaultUrl), '/');
 
         if (empty($baseUrl)) {
             $this->error('A URL base do site não está configurada em app.url nem foi passada como opção.');

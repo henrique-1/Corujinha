@@ -12,7 +12,13 @@ class SeoController extends Controller
      */
     public function sitemap(): Response
     {
-        $baseUrl = rtrim(config('app.url') ?: Request::root(), '/');
+        $configuredUrl = config('app.url');
+        $baseUrl = (! empty($configuredUrl) && ! str_contains($configuredUrl, 'localhost'))
+            ? rtrim($configuredUrl, '/')
+            : (Request::getHost() && ! in_array(Request::getHost(), ['localhost', '127.0.0.1'], true)
+                ? rtrim(Request::root(), '/')
+                : 'https://corujinha.bissoli.tech');
+
         $now = now()->toAtomString();
 
         $urls = [

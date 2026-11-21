@@ -12,7 +12,7 @@ class SubmitIndexNowCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'seo:bing-index {--url= : URL específica para submeter}';
+    protected $signature = 'seo:bing-index {--url= : URL específica para submeter} {--base-url= : URL base do site (padrão: config app.url ou https://corujinha.bissoli.tech)}';
 
     /**
      * The console command description.
@@ -34,25 +34,32 @@ class SubmitIndexNowCommand extends Command
             return self::FAILURE;
         }
 
-        $appUrl = rtrim((string) config('app.url'), '/');
-        $host = parse_url($appUrl, PHP_URL_HOST) ?: 'localhost';
+        $configuredUrl = config('app.url');
+        $defaultUrl = (! empty($configuredUrl) && ! str_contains($configuredUrl, 'localhost'))
+            ? $configuredUrl
+            : 'https://corujinha.bissoli.tech';
+
+        $baseUrl = rtrim((string) ($this->option('base-url') ?: $defaultUrl), '/');
+        $host = parse_url($baseUrl, PHP_URL_HOST) ?: 'corujinha.bissoli.tech';
 
         $urlOption = $this->option('url');
         $urls = $urlOption
             ? [(string) $urlOption]
             : [
-                $appUrl.'/',
-                $appUrl.'/sala',
+                $baseUrl.'/',
+                $baseUrl.'/sala',
             ];
 
         $payload = [
             'host' => $host,
             'key' => $key,
-            'keyLocation' => $appUrl.'/'.$key.'.txt',
+            'keyLocation' => $baseUrl.'/'.$key.'.txt',
             'urlList' => $urls,
         ];
 
         $this->info('Submetendo '.count($urls).' URL(s) ao Microsoft Bing e parceiros via IndexNow...');
+        $this->line("Host: {$host}");
+        $this->line("Key Location: {$payload['keyLocation']}");
 
         // Submete aos endpoints do Bing e IndexNow
         $endpoints = [

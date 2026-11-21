@@ -29,7 +29,7 @@ Disallow: /professor/
 Disallow: /sala/
 
 # Mapa do site para motores de busca
-Sitemap: /sitemap.xml
+Sitemap: https://corujinha.bissoli.tech/sitemap.xml
 
 # Bloqueio explícito contra raspagem do banco de questões por robôs e crawlers de IA
 User-agent: GPTBot
