@@ -1,11 +1,12 @@
 # Robots.txt - Corujinha (Prepara Avalia+)
-# Permite a indexação apenas das páginas iniciais e de acesso público.
-# Bloqueia áreas autenticadas, dados sensíveis, avaliações e crawlers de IA.
+# Permite a indexação das páginas iniciais públicas (Bing, Google, etc.)
+# Bloqueia áreas autenticadas, dados sensíveis, avaliações em andamento e crawlers de IA.
 
 User-agent: *
 Allow: /$
 Allow: /login$
 Allow: /sala$
+Allow: /sala?
 Disallow: /admin/
 Disallow: /professor/
 Disallow: /sala/
@@ -16,6 +17,19 @@ Disallow: /seguranca/
 Disallow: /dev/
 Disallow: /midia/
 Disallow: /_boost/
+
+# Configuração para Microsoft Bing (Bingbot)
+User-agent: bingbot
+Allow: /$
+Allow: /sala$
+Allow: /sala?
+Allow: /login$
+Disallow: /admin/
+Disallow: /professor/
+Disallow: /sala/
+
+# Mapa do site para motores de busca
+Sitemap: /sitemap.xml
 
 # Bloqueio explícito contra raspagem do banco de questões por robôs e crawlers de IA
 User-agent: GPTBot

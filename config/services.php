@@ -39,4 +39,12 @@ return [
         'id' => env('MICROSOFT_CLARITY_ID', 'zfl6cyyfh8'),
     ],
 
+    'bing' => [
+        'site_verification' => env('BING_SITE_VERIFICATION'),
+    ],
+
+    'indexnow' => [
+        'key' => env('INDEXNOW_KEY', '0ac12cfc2bcf4188acd8597706efecb7'),
+    ],
+
 ];

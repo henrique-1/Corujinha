@@ -1,7 +1,24 @@
-<x-layouts.app title="Entrar na Sala de Aula · Corujinha">
+<x-layouts.app title="Corujinha · Sala de Avaliação e Provas Online"
+               meta-description="Acesse a sala de avaliação do Corujinha (Prepara Avalia+). Digite o código da sala fornecido pelo professor para iniciar ou retomar seu simulado e prova online."
+               :canonical-url="route('estudante.entrar')">
     @php
         $resumeActive = old('resume_code') !== null || $errors->has('access_code') || request()->query('modo') === 'retomar';
     @endphp
+
+    {{-- Dados Estruturados Schema.org (Recomendação Bing Webmaster Guidelines) --}}
+    <script type="application/ld+json">
+    {!! json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'WebApplication',
+        'name' => 'Corujinha',
+        'alternateName' => ['Prepara Avalia+', 'Corujinha Avaliações'],
+        'url' => route('estudante.entrar'),
+        'applicationCategory' => 'EducationalApplication',
+        'operatingSystem' => 'All',
+        'description' => 'Plataforma para realização de avaliações, simulados escolares e acompanhamento de aprendizagem em tempo real.',
+        'inLanguage' => 'pt-BR',
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}
+    </script>
 
     <main id="main-content" role="main" class="min-h-screen flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-6 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-magnolia-200">

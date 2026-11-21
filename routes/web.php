@@ -16,6 +16,7 @@ use App\Http\Controllers\Professor\QuestionController;
 use App\Http\Controllers\Professor\QuestionFolderController;
 use App\Http\Controllers\Professor\QuestionShareController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\Student\ClassroomPlayerController;
 use App\Models\User;
 use App\Notifications\ProfessorInviteNotification;
@@ -28,6 +29,10 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 Route::get('/', [ClassroomPlayerController::class, 'showEnter'])->name('home');
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('/{key}.txt', [SeoController::class, 'indexNowKeyFile'])
+    ->where('key', '[a-zA-Z0-9_-]{16,64}')
+    ->name('seo.indexnow_key');
 Route::get('/_boost/browser-logs', fn () => redirect()->route('home'));
 Route::get('/midia/questoes/{question}', [QuestionController::class, 'showSupportImage'])->name('midia.questao');
 Route::get('/midia/questoes/{question}/resolucao-esperada', [QuestionController::class, 'showExpectedAnswerImage'])->name('midia.questao.resolucao_esperada');
